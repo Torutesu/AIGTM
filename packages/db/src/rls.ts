@@ -39,6 +39,9 @@ BEGIN
     CREATE ROLE ${APP_ROLE} NOLOGIN;
   END IF;
 END$$`));
+  // The connecting role needs membership in APP_ROLE for SET LOCAL ROLE to
+  // work when it is not a superuser (superusers can SET ROLE regardless).
+  await db.execute(sql.raw(`GRANT ${APP_ROLE} TO CURRENT_USER`));
   await db.execute(sql.raw(`GRANT USAGE ON SCHEMA public TO ${APP_ROLE}`));
   await db.execute(
     sql.raw(

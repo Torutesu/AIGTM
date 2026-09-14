@@ -163,7 +163,7 @@ export const runs = pgTable(
     agentId: uuid("agent_id").notNull().references(() => agents.id),
     triggerKind: text("trigger_kind").notNull(), // manual | schedule | event | api
     triggerContext: jsonb("trigger_context"),
-    status: text("status").notNull().default("running"), // running | fulfilled | rejected
+    status: text("status").notNull().default("running"), // running | fulfilled | rejected | cancelled
     error: text("error"),
     tokensIn: integer("tokens_in").notNull().default(0),
     tokensOut: integer("tokens_out").notNull().default(0),

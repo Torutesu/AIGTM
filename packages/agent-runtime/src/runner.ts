@@ -215,6 +215,58 @@ export async function executeRun(
   });
 }
 
+/** Cancel a still-running run (mock executor is synchronous, so this is rare). */
+export async function cancelRun(
+  handle: DbHandle,
+  ctx: OrgContext,
+  runId: string,
+) {
+  return withOrg(handle, { ...ctx, actorType: ctx.actorType ?? "user" }, async (tx) => {
+    const [run] = await tx
+      .select()
+      .from(schema.runs)
+      .where(eq(schema.runs.id, runId))
+      .limit(1);
+    if (!run) throw new Error(`run not found: ${runId}`);
+    if (run.status !== "running") throw new Error(`run not running: ${runId}`);
+    await tx
+      .update(schema.runs)
+      .set({ status: "cancelled", finishedAt: new Date(), error: "cancelled by user" })
+      .where(eq(schema.runs.id, runId));
+    await audit(tx, ctx, {
+      action: "run.cancelled",
+      entityType: "run",
+      entityId: runId,
+      detail: { agentId: run.agentId },
+    });
+    return { runId, status: "cancelled" as const };
+  });
+}
+
+/** Look up a run's agent so a finished run can be re-executed. */
+export async function retryableAgentId(
+  handle: DbHandle,
+  ctx: OrgContext,
+  runId: string,
+) {
+  return withOrg(handle, { ...ctx, actorType: ctx.actorType ?? "user" }, async (tx) => {
+    const [run] = await tx
+      .select({ agentId: schema.runs.agentId, status: schema.runs.status })
+      .from(schema.runs)
+      .where(eq(schema.runs.id, runId))
+      .limit(1);
+    if (!run) throw new Error(`run not found: ${runId}`);
+    if (run.status === "running") throw new Error("run still in progress");
+    await audit(tx, ctx, {
+      action: "run.retried",
+      entityType: "run",
+      entityId: runId,
+      detail: { agentId: run.agentId },
+    });
+    return run.agentId;
+  });
+}
+
 /**
  * Collect subject entity ids for knowledge writes. `from` points at a step
  * whose output is an array of entities ({id}). Without `from`, fall back to

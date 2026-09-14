@@ -76,6 +76,12 @@ const jobPostingSignalSpec = {
   actions: [{ emit: "signal_event" }],
 };
 
+export const VIEWER = {
+  email: process.env.SEED_VIEWER_EMAIL ?? "viewer@aigtm.local",
+  password: process.env.SEED_VIEWER_PASSWORD ?? "viewer-password",
+  name: "Viewer",
+};
+
 /** Seed demo data. Returns ids used by tests. Idempotent per email. */
 export async function seed(handle: Awaited<ReturnType<typeof createDb>>) {
   const db = handle.db;
@@ -90,6 +96,7 @@ export async function seed(handle: Awaited<ReturnType<typeof createDb>>) {
       .from(schema.memberships)
       .where(eq(schema.memberships.userId, existing.id))
       .limit(1);
+    await ensureViewer(handle, m!.orgId);
     return { userId: existing.id, orgId: m!.orgId };
   }
 
@@ -108,6 +115,7 @@ export async function seed(handle: Awaited<ReturnType<typeof createDb>>) {
   await db
     .insert(schema.memberships)
     .values({ orgId: org.id, userId: user.id, role: "admin" });
+  await ensureViewer(handle, org.id);
 
   await withOrg(handle, { orgId: org.id, userId: user.id, actorType: "system" }, async (tx) => {
     const [acme, globex, sakura, nordic, hummingbird, tsubame, cascade] = await tx
@@ -394,6 +402,53 @@ export async function seed(handle: Awaited<ReturnType<typeof createDb>>) {
       },
     ]);
 
+    // A rejected run (retryable) and a hung running run (cancellable),
+    // so run lifecycle controls have real targets in demo data.
+    const [run3] = await tx
+      .insert(schema.runs)
+      .values({
+        orgId: org.id,
+        agentId: agent.id,
+        triggerKind: "manual",
+        status: "rejected",
+        tokensIn: 410,
+        tokensOut: 0,
+        startedAt: new Date(Date.now() - 7200_000),
+        finishedAt: new Date(Date.now() - 7000_000),
+        error: "model timeout: mock:reasoning",
+      })
+      .returning();
+    await tx.insert(schema.runSteps).values([
+      {
+        orgId: org.id,
+        runId: run3.id,
+        stepId: "find_stalled",
+        kind: "tool",
+        tool: "deals.stalled",
+        input: { days: 14 },
+        output: { deals: [] },
+        latencyMs: 96,
+      },
+      {
+        orgId: org.id,
+        runId: run3.id,
+        stepId: "diagnose",
+        kind: "llm",
+        model: "mock:reasoning",
+        status: "rejected",
+        error: "model timeout: mock:reasoning",
+        tokensIn: 410,
+        latencyMs: 30000,
+      },
+    ]);
+    await tx.insert(schema.runs).values({
+      orgId: org.id,
+      agentId: outboundAgent.id,
+      triggerKind: "schedule",
+      status: "running",
+      startedAt: new Date(Date.now() - 300_000),
+    });
+
     const [ob] = await tx
       .insert(schema.outbox)
       .values({
@@ -478,9 +533,48 @@ export async function seed(handle: Awaited<ReturnType<typeof createDb>>) {
       entityId: ap2.id,
       detail: { note: "demo seed: draft email" },
     });
+
+    await tx.insert(schema.segments).values([
+      {
+        orgId: org.id,
+        name: "High-fit prospects",
+        filter: { minScore: 70, stage: "prospect" },
+      },
+      {
+        orgId: org.id,
+        name: "Active opportunities",
+        filter: { stage: "opportunity" },
+      },
+    ]);
   });
 
   return { userId: user.id, orgId: org.id };
+}
+
+/** Idempotently create the read-only demo user in the given org. */
+async function ensureViewer(
+  handle: Awaited<ReturnType<typeof createDb>>,
+  orgId: string,
+) {
+  const db = handle.db;
+  const [existing] = await db
+    .select()
+    .from(schema.users)
+    .where(eq(schema.users.email, VIEWER.email))
+    .limit(1);
+  if (existing) return existing.id;
+  const [v] = await db
+    .insert(schema.users)
+    .values({
+      email: VIEWER.email,
+      name: VIEWER.name,
+      passwordHash: hashPassword(VIEWER.password),
+    })
+    .returning();
+  await db
+    .insert(schema.memberships)
+    .values({ orgId, userId: v.id, role: "viewer" });
+  return v.id;
 }
 
 // CLI entry: pnpm --filter @aigtm/db seed

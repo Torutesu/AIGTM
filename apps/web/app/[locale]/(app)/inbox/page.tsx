@@ -93,6 +93,7 @@ export default async function InboxPage({
       pending={data.pending}
       events={data.events}
       stats={data.stats}
+      canAct={session.role !== "viewer"}
     />
   );
 }
@@ -102,11 +103,13 @@ function InboxView({
   pending,
   events,
   stats,
+  canAct,
 }: {
   locale: string;
   pending: ApprovalRow[];
   events: SignalEventRow[];
   stats: { pending: number; weekSignals: number; liveAgents: number; weekRuns: number };
+  canAct: boolean;
 }) {
   const t = useTranslations("inbox");
   const cards = [
@@ -177,6 +180,7 @@ function InboxView({
                         ) : null}
                       </div>
                       <div className="flex shrink-0 gap-2">
+                        {canAct ? (
                         <form action={decideApprovalAction.bind(null, locale)}>
                           <input type="hidden" name="approvalId" value={ap.id} />
                           <input type="hidden" name="decision" value="approved" />
@@ -189,6 +193,7 @@ function InboxView({
                             {t("approve")}
                           </button>
                         </form>
+                        ) : null}
                         <Link
                           href={`/approvals?selected=${ap.id}`}
                           className="flex items-center gap-1.5 rounded-lg border border-line bg-card px-4 py-2 font-mono text-[11px] tracking-[0.06em] text-ink-soft uppercase transition-colors hover:border-ink-faint hover:text-ink"

@@ -8,6 +8,8 @@ import { ensureDb } from "../../../../../lib/db";
 import { requireSession } from "../../../../../lib/session";
 import { Chip, Card, statusTone, stamp } from "../../_components/ui";
 import { Link } from "../../../../../i18n/routing";
+import { retryRunAction, cancelRunAction } from "../../../../../lib/actions";
+import { PlayIcon, XIcon } from "../../_components/icons";
 
 interface RunRow {
   id: string;
@@ -77,7 +79,13 @@ export default async function RunDetailPage({
   );
 
   if (!data) notFound();
-  return <RunView locale={locale} {...data} />;
+  return (
+    <RunView
+      locale={locale}
+      canAct={session.role !== "viewer"}
+      {...data}
+    />
+  );
 }
 
 function summarizeOutput(output: unknown): string {
@@ -95,10 +103,12 @@ function RunView({
   locale,
   run,
   steps,
+  canAct,
 }: {
   locale: string;
   run: RunRow;
   steps: StepRow[];
+  canAct: boolean;
 }) {
   const t = useTranslations("run");
   return (
@@ -119,6 +129,30 @@ function RunView({
           <Chip tone={statusTone(run.status)} dot>
             {run.status}
           </Chip>
+          {canAct && run.status === "rejected" ? (
+            <form action={retryRunAction.bind(null, locale)} className="ml-auto">
+              <input type="hidden" name="runId" value={run.id} />
+              <button
+                type="submit"
+                className="flex items-center gap-1.5 rounded-lg bg-forest px-4 py-2 font-mono text-[11px] tracking-[0.06em] text-white uppercase hover:bg-forest-deep"
+              >
+                <PlayIcon size={11} strokeWidth={2.4} />
+                {t("retry")}
+              </button>
+            </form>
+          ) : null}
+          {canAct && run.status === "running" ? (
+            <form action={cancelRunAction.bind(null, locale)} className="ml-auto">
+              <input type="hidden" name="runId" value={run.id} />
+              <button
+                type="submit"
+                className="flex items-center gap-1.5 rounded-lg border border-line bg-card px-4 py-2 font-mono text-[11px] tracking-[0.06em] text-ink-soft uppercase hover:border-ink-faint"
+              >
+                <XIcon size={11} strokeWidth={2.2} />
+                {t("cancel")}
+              </button>
+            </form>
+          ) : null}
         </div>
         <p className="mt-1.5 font-mono text-[12px] text-ink-faint">
           {run.triggerKind} · {stamp(run.startedAt, locale)}

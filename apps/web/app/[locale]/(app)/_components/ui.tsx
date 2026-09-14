@@ -66,6 +66,7 @@ export function statusTone(status: string): ChipTone {
       return "good";
     case "rejected":
     case "failed":
+    case "cancelled":
       return "bad";
     case "pending":
     case "running":

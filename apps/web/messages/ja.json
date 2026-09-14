@@ -10,6 +10,7 @@
     "accounts": "アカウント",
     "deals": "商談",
     "contacts": "コンタクト",
+    "segments": "セグメント",
     "signals": "シグナル",
     "inbox": "インボックス",
     "agents": "エージェント",
@@ -88,7 +89,12 @@
     "reasonPlaceholder": "却下する理由を入力",
     "confirmReject": "却下を確定",
     "back": "戻る",
-    "reasonLabel": "理由:"
+    "reasonLabel": "理由:",
+    "filterAll": "すべて",
+    "filterPending": "承認待ち",
+    "filterApproved": "承認済み",
+    "filterRejected": "却下済み",
+    "viewOnly": "閲覧のみ — このロールでは承認操作はできません。"
   },
   "accounts": {
     "eyebrow": "Records / Accounts",
@@ -102,11 +108,41 @@
     "signals": "シグナル",
     "stageNew": "新規",
     "stageOpportunity": "商談中",
-    "stageCustomer": "顧客"
+    "stageCustomer": "顧客",
+    "sortBy": "並び替え",
+    "sortScore": "スコア順",
+    "sortName": "名前順",
+    "filterStage": "ステージ",
+    "all": "すべて",
+    "stage_prospect": "見込み",
+    "stage_opportunity": "商談中",
+    "stage_customer": "顧客"
   },
   "palette": {
-    "placeholder": "ページへ移動…",
-    "empty": "見つかりません"
+    "placeholder": "検索 / ページへ移動…",
+    "empty": "見つかりません",
+    "accounts": "アカウント",
+    "contacts": "コンタクト",
+    "deals": "商談",
+    "agents": "エージェント"
+  },
+  "segments": {
+    "eyebrow": "Records / Segments",
+    "title": "セグメント",
+    "totalCount": "{count} 件のセグメント",
+    "new": "新規セグメント",
+    "name": "名前",
+    "namePlaceholder": "例: 高スコア見込み",
+    "minScore": "最低スコア",
+    "stage": "ステージ",
+    "any": "すべて",
+    "industry": "業種",
+    "industryPlaceholder": "例: ai",
+    "create": "作成",
+    "empty": "セグメントはまだありません。",
+    "emptyHint": "スコア・ステージ・業種でアカウントをグループ化します。",
+    "members": "{count} 件",
+    "noFilter": "条件なし — すべてのアカウントに一致"
   },
   "account": {
     "eyebrow": "Records / Account",
@@ -134,7 +170,9 @@
   },
   "run": {
     "eyebrow": "Agents / Run",
-    "steps": "ステップ"
+    "steps": "ステップ",
+    "retry": "再実行",
+    "cancel": "キャンセル"
   },
   "deals": {
     "eyebrow": "Records / Opportunities",

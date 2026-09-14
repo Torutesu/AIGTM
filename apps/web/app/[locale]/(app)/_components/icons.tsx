@@ -140,6 +140,14 @@ export const PlayIcon = (p: P) => (
   </IconBase>
 );
 
+export const LayersIcon = (p: P) => (
+  <IconBase {...p}>
+    <polygon points="12 2 2 7 12 12 22 7 12 2" />
+    <polyline points="2 17 12 22 22 17" />
+    <polyline points="2 12 12 17 22 12" />
+  </IconBase>
+);
+
 export const PencilIcon = (p: P) => (
   <IconBase {...p}>
     <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />

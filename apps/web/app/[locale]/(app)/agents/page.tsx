@@ -61,17 +61,26 @@ export default async function AgentsPage({
     },
   );
 
-  return <AgentsView locale={locale} agents={data.agentRows} runs={data.runRows} />;
+  return (
+    <AgentsView
+      locale={locale}
+      agents={data.agentRows}
+      runs={data.runRows}
+      canAct={session.role !== "viewer"}
+    />
+  );
 }
 
 function AgentsView({
   locale,
   agents,
   runs,
+  canAct,
 }: {
   locale: string;
   agents: AgentRow[];
   runs: RunRow[];
+  canAct: boolean;
 }) {
   const t = useTranslations("agents");
   return (
@@ -111,17 +120,19 @@ function AgentsView({
                     <span className="mx-1.5 text-line">·</span>
                     {agent.spec?.steps?.length ?? 0} {t("steps")}
                   </span>
-                  <form action={runAgentAction.bind(null, locale)}>
-                    <input type="hidden" name="agentId" value={agent.id} />
-                    <button
-                      type="submit"
-                      data-testid={`run-${agent.id}`}
-                      className="flex items-center gap-1.5 rounded-lg bg-forest px-3.5 py-1.5 font-mono text-[11px] tracking-[0.06em] text-white uppercase transition-colors hover:bg-forest-deep"
-                    >
-                      <PlayIcon size={11} strokeWidth={2.4} />
-                      {t("run")}
-                    </button>
-                  </form>
+                  {canAct ? (
+                    <form action={runAgentAction.bind(null, locale)}>
+                      <input type="hidden" name="agentId" value={agent.id} />
+                      <button
+                        type="submit"
+                        data-testid={`run-${agent.id}`}
+                        className="flex items-center gap-1.5 rounded-lg bg-forest px-3.5 py-1.5 font-mono text-[11px] tracking-[0.06em] text-white uppercase transition-colors hover:bg-forest-deep"
+                      >
+                        <PlayIcon size={11} strokeWidth={2.4} />
+                        {t("run")}
+                      </button>
+                    </form>
+                  ) : null}
                 </div>
               </Card>
             </li>

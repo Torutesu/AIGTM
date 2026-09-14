@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import { useTranslations } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
-import { desc, eq, inArray } from "drizzle-orm";
+import { asc, desc, eq, inArray } from "drizzle-orm";
 import { schema, withOrg } from "@aigtm/db";
 import { Link } from "../../../../i18n/routing";
 import { ensureDb } from "../../../../lib/db";
@@ -23,15 +23,28 @@ interface AccountRow {
   stage: string;
 }
 
+const STAGES = ["prospect", "opportunity", "customer"] as const;
+
 export default async function AccountsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string }>;
+  searchParams: Promise<{ sort?: string; stage?: string }>;
 }) {
   const { locale } = await params;
+  const { sort, stage } = await searchParams;
   setRequestLocale(locale);
   const session = await requireSession(locale);
   const handle = await ensureDb();
+
+  const orderBy =
+    sort === "name"
+      ? asc(schema.accounts.name)
+      : desc(schema.accounts.icpFitScore);
+  const stageFilter = STAGES.includes(stage as (typeof STAGES)[number])
+    ? stage!
+    : null;
 
   const data = await withOrg(
     handle,
@@ -40,7 +53,8 @@ export default async function AccountsPage({
       const accountRows = (await tx
         .select()
         .from(schema.accounts)
-        .orderBy(desc(schema.accounts.icpFitScore))
+        .where(stageFilter ? eq(schema.accounts.stage, stageFilter) : undefined)
+        .orderBy(orderBy)
         .limit(100)) as AccountRow[];
 
       const ids = accountRows.map((a) => a.id);
@@ -90,6 +104,8 @@ export default async function AccountsPage({
       accounts={data.accountRows}
       contactsByAccount={Object.fromEntries(data.contactsByAccount)}
       signalsByAccount={Object.fromEntries(data.signalsByAccount)}
+      sort={sort === "name" ? "name" : "score"}
+      stage={stageFilter}
     />
   );
 }
@@ -109,12 +125,37 @@ function AccountsView({
   accounts,
   contactsByAccount,
   signalsByAccount,
+  sort,
+  stage,
 }: {
   accounts: AccountRow[];
   contactsByAccount: Record<string, string[]>;
   signalsByAccount: Record<string, string[]>;
+  sort: "score" | "name";
+  stage: string | null;
 }) {
   const t = useTranslations("accounts");
+  const hrefFor = (s?: string, st?: string | null) => {
+    const p = new URLSearchParams();
+    if (s && s !== "score") p.set("sort", s);
+    if (st) p.set("stage", st);
+    const qs = p.toString();
+    return `/accounts${qs ? `?${qs}` : ""}`;
+  };
+  const filterChip = (label: string, active: boolean, href: string) => (
+    <Link
+      key={label}
+      href={href}
+      scroll={false}
+      className={`rounded-md border px-2.5 py-1 font-mono text-[10.5px] tracking-[0.04em] uppercase transition-colors ${
+        active
+          ? "border-forest bg-forest text-white"
+          : "border-line bg-card text-ink-soft hover:border-ink-faint"
+      }`}
+    >
+      {label}
+    </Link>
+  );
   return (
     <div>
       <PageHeader
@@ -122,6 +163,22 @@ function AccountsView({
         title={t("title")}
         meta={t("totalCount", { count: accounts.length })}
       />
+
+      <div className="mb-5 flex flex-wrap items-center gap-2">
+        <span className="font-mono text-[10px] tracking-label text-ink-faint uppercase">
+          {t("sortBy")}
+        </span>
+        {filterChip(t("sortScore"), sort === "score", hrefFor("score", stage))}
+        {filterChip(t("sortName"), sort === "name", hrefFor("name", stage))}
+        <span className="mx-1 h-4 w-px bg-line" />
+        <span className="font-mono text-[10px] tracking-label text-ink-faint uppercase">
+          {t("filterStage")}
+        </span>
+        {filterChip(t("all"), stage === null, hrefFor(sort, null))}
+        {STAGES.map((s) =>
+          filterChip(t(`stage_${s}`), stage === s, hrefFor(sort, s)),
+        )}
+      </div>
 
       {accounts.length === 0 ? (
         <EmptyState label={t("empty")} />

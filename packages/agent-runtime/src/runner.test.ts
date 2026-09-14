@@ -9,7 +9,7 @@ import {
   type DbHandle,
 } from "@aigtm/db";
 import { parseAgentSpec } from "@aigtm/specs";
-import { executeRun } from "./runner";
+import { executeRun, cancelRun, retryableAgentId } from "./runner";
 import { decideApproval } from "./approvals";
 import { MockProvider, ModelRouter } from "./model";
 import { readFileSync } from "node:fs";
@@ -162,5 +162,57 @@ describe("decideApproval", () => {
     )) as { status: string }[];
     expect(rows[0].status).toBe("cancelled");
     await expect(decideApproval(handle, ctx(), ap.id, "approved")).rejects.toThrowError();
+  });
+});
+
+describe("run retry/cancel", () => {
+  it("cancelRun marks a running run cancelled and writes audit", async () => {
+    const run = await withOrg(handle, ctx(), async (tx) => {
+      const [r] = await tx
+        .insert(schema.runs)
+        .values({ orgId, agentId, triggerKind: "manual" })
+        .returning();
+      return r;
+    });
+    const res = await cancelRun(handle, ctx(), run.id);
+    expect(res.status).toBe("cancelled");
+
+    const data = await withOrg(handle, ctx(), async (tx) => ({
+      run: (await tx.select().from(schema.runs).where(eq(schema.runs.id, run.id)))[0],
+      audits: (await tx
+        .select()
+        .from(schema.auditEvents)
+        .where(eq(schema.auditEvents.entityId, run.id))) as { action: string }[],
+    }));
+    expect(data.run.status).toBe("cancelled");
+    expect(data.audits.map((a) => a.action)).toContain("run.cancelled");
+  });
+
+  it("cancelRun rejects non-running runs", async () => {
+    const { runId } = await executeRun(handle, ctx(), { agentId, triggerKind: "manual" });
+    await expect(cancelRun(handle, ctx(), runId!)).rejects.toThrowError();
+  });
+
+  it("retryableAgentId returns the agent for finished runs and audits", async () => {
+    const { runId } = await executeRun(handle, ctx(), { agentId, triggerKind: "manual" });
+    const resolved = await retryableAgentId(handle, ctx(), runId!);
+    expect(resolved).toBe(agentId);
+    const audits = (await withOrg(handle, ctx(), (tx) =>
+      tx.select().from(schema.auditEvents).where(eq(schema.auditEvents.entityId, runId!)),
+    )) as { action: string }[];
+    expect(audits.map((a) => a.action)).toContain("run.retried");
+  });
+
+  it("retryableAgentId rejects a still-running run", async () => {
+    const run = await withOrg(handle, ctx(), async (tx) => {
+      const [r] = await tx
+        .insert(schema.runs)
+        .values({ orgId, agentId, triggerKind: "manual" })
+        .returning();
+      return r;
+    });
+    await expect(retryableAgentId(handle, ctx(), run.id)).rejects.toThrowError(
+      /still in progress/,
+    );
   });
 });

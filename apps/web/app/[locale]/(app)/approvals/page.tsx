@@ -38,18 +38,24 @@ interface ApprovalRow {
   } | null;
 }
 
+const STATUSES = ["pending", "approved", "rejected"] as const;
+
 export default async function ApprovalsPage({
   params,
   searchParams,
 }: {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ selected?: string }>;
+  searchParams: Promise<{ selected?: string; status?: string }>;
 }) {
   const { locale } = await params;
-  const { selected } = await searchParams;
+  const { selected, status } = await searchParams;
   setRequestLocale(locale);
   const session = await requireSession(locale);
   const handle = await ensureDb();
+
+  const statusFilter = STATUSES.includes(status as (typeof STATUSES)[number])
+    ? status!
+    : null;
 
   const rows = (await withOrg(
     handle,
@@ -67,6 +73,9 @@ export default async function ApprovalsPage({
         })
         .from(schema.approvals)
         .leftJoin(schema.outbox, eq(schema.approvals.outboxId, schema.outbox.id))
+        .where(
+          statusFilter ? eq(schema.approvals.status, statusFilter) : undefined,
+        )
         .orderBy(desc(schema.approvals.createdAt))
         .limit(100),
   )) as ApprovalRow[];
@@ -77,19 +86,33 @@ export default async function ApprovalsPage({
     rows[0] ??
     null;
 
-  return <ReviewView locale={locale} rows={rows} current={current} />;
+  return (
+    <ReviewView
+      locale={locale}
+      rows={rows}
+      current={current}
+      status={statusFilter}
+      canAct={session.role !== "viewer"}
+    />
+  );
 }
 
 function ReviewView({
   locale,
   rows,
   current,
+  status,
+  canAct,
 }: {
   locale: string;
   rows: ApprovalRow[];
   current: ApprovalRow | null;
+  status: string | null;
+  canAct: boolean;
 }) {
   const t = useTranslations("approvals");
+  const hrefFor = (s: string | null) =>
+    s ? `/approvals?status=${s}` : "/approvals";
 
   const byAgent = new Map<string, ApprovalRow[]>();
   for (const r of rows) {
@@ -105,6 +128,30 @@ function ReviewView({
         meta={t("totalCount", { count: rows.filter((r) => r.status === "pending").length })}
       />
 
+      <div className="mb-5 flex flex-wrap items-center gap-2">
+        {(
+          [
+            [null, t("filterAll")],
+            ["pending", t("filterPending")],
+            ["approved", t("filterApproved")],
+            ["rejected", t("filterRejected")],
+          ] as const
+        ).map(([s, label]) => (
+          <Link
+            key={label}
+            href={hrefFor(s)}
+            scroll={false}
+            className={`rounded-md border px-2.5 py-1 font-mono text-[10.5px] tracking-[0.04em] uppercase transition-colors ${
+              status === s
+                ? "border-forest bg-forest text-white"
+                : "border-line bg-card text-ink-soft hover:border-ink-faint"
+            }`}
+          >
+            {label}
+          </Link>
+        ))}
+      </div>
+
       {rows.length === 0 ? (
         <EmptyState label={t("empty")} />
       ) : (
@@ -119,9 +166,9 @@ function ReviewView({
                   {items.map((r) => {
                     const active = current?.id === r.id;
                     return (
-                      <li key={r.id}>
+                      <li key={r.id} data-testid="queue-item">
                         <Link
-                          href={`/approvals?selected=${r.id}`}
+                          href={`/approvals?${status ? `status=${status}&` : ""}selected=${r.id}`}
                           scroll={false}
                           className={`block rounded-lg border px-3.5 py-2.5 transition-colors ${
                             active
@@ -149,14 +196,26 @@ function ReviewView({
             ))}
           </div>
 
-          <div>{current ? <Detail locale={locale} row={current} /> : null}</div>
+          <div>
+            {current ? (
+              <Detail locale={locale} row={current} canAct={canAct} />
+            ) : null}
+          </div>
         </div>
       )}
     </div>
   );
 }
 
-function Detail({ locale, row }: { locale: string; row: ApprovalRow }) {
+function Detail({
+  locale,
+  row,
+  canAct,
+}: {
+  locale: string;
+  row: ApprovalRow;
+  canAct: boolean;
+}) {
   const t = useTranslations("approvals");
   const preview = row.payload?.preview ?? {};
   const draft = row.outboxPayload;
@@ -198,12 +257,16 @@ function Detail({ locale, row }: { locale: string; row: ApprovalRow }) {
         ) : null}
       </Card>
 
-      {pending ? (
+      {pending && canAct ? (
         <ReviewPanel
           approvalId={row.id}
           draft={draft}
           decideAction={decideApprovalAction.bind(null, locale)}
         />
+      ) : pending && !canAct ? (
+        <p className="font-mono text-[11px] text-ink-faint">
+          {t("viewOnly")}
+        </p>
       ) : (
         <div className="font-mono text-[11px] text-ink-faint">
           <p>
@@ -217,7 +280,8 @@ function Detail({ locale, row }: { locale: string; row: ApprovalRow }) {
         </div>
       )}
 
-      {!pending && (draft?.subject || draft?.body || draft?.title) ? (
+      {(!pending || !canAct) &&
+      (draft?.subject || draft?.body || draft?.title) ? (
         <Card className="px-5 py-4">
           <p className="mb-3 font-mono text-[10px] tracking-label text-ink-faint uppercase">
             {t("draft")}

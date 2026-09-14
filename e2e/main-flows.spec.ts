@@ -17,14 +17,22 @@ test("inbox shows pending approvals and signals", async ({ page }) => {
 
 test("editing a draft then approving dispatches (mock) and writes audit", async ({ page }) => {
   await page.goto("/en/approvals");
-  await page.getByText("pending").first().click();
+  await page
+    .getByTestId("queue-item")
+    .filter({ hasText: "pending" })
+    .first()
+    .click();
   await page.getByRole("button", { name: "Edit" }).click();
   await page.locator("textarea").fill("Edited body for e2e");
   await expect(page.getByText("Your changes")).toBeVisible();
   await page.getByRole("button", { name: "Approve edited" }).click();
   await page.waitForLoadState("networkidle");
-  await expect(page.getByText("approved").first()).toBeVisible();
-  await expect(page.getByText("Edited body for e2e")).toBeVisible();
+  await expect(
+    page.getByTestId("queue-item").filter({ hasText: "approved" }),
+  ).toHaveCount(1);
+  await expect(
+    page.locator("p.whitespace-pre-wrap").filter({ hasText: "Edited body for e2e" }),
+  ).toBeVisible();
 
   await page.goto("/en/audit");
   await expect(page.getByText("approval.decided").first()).toBeVisible();
@@ -33,12 +41,18 @@ test("editing a draft then approving dispatches (mock) and writes audit", async 
 
 test("dismissing with a reason records it", async ({ page }) => {
   await page.goto("/en/approvals");
-  await page.getByText("pending").first().click();
+  await page
+    .getByTestId("queue-item")
+    .filter({ hasText: "pending" })
+    .first()
+    .click();
   await page.getByRole("button", { name: "Dismiss", exact: true }).click();
   await page.getByPlaceholder("Why is this being dismissed?").fill("not relevant");
   await page.getByRole("button", { name: "Confirm dismiss" }).click();
   await page.waitForLoadState("networkidle");
-  await expect(page.getByText("rejected").first()).toBeVisible();
+  await expect(
+    page.getByTestId("queue-item").filter({ hasText: "rejected" }),
+  ).toHaveCount(1);
   await expect(page.getByText("not relevant")).toBeVisible();
 });
 
@@ -77,7 +91,7 @@ test("deals, contacts and signals pages render", async ({ page }) => {
 
 test("command palette opens and navigates", async ({ page }) => {
   await page.getByRole("button", { name: /Search or jump to/ }).click();
-  await page.getByPlaceholder("Go to a page…").fill("appro");
+  await page.getByPlaceholder("Search or go to a page…").fill("appro");
   await page.keyboard.press("Enter");
   await page.waitForURL("**/en/approvals");
 });
@@ -121,5 +135,115 @@ test("unauthenticated user is redirected to login", async ({ browser }) => {
   const page = await ctx.newPage();
   await page.goto("/en/inbox");
   await page.waitForURL("**/en/login");
+  await ctx.close();
+});
+
+test("command palette searches real records", async ({ page }) => {
+  await page.getByRole("button", { name: /Search or jump to/ }).click();
+  await page.getByPlaceholder("Search or go to a page…").fill("Nordic");
+  const hit = page.getByRole("button", { name: /Nordic Systems/ });
+  await expect(hit).toBeVisible();
+  await hit.click();
+  await page.waitForURL("**/en/accounts/*");
+  await expect(page.getByText("Nordic Systems").first()).toBeVisible();
+});
+
+test("accounts sort and stage filter persist in the url", async ({ page }) => {
+  await page.goto("/en/accounts");
+  await page.getByRole("link", { name: "Name", exact: true }).click();
+  await expect(page).toHaveURL(/sort=name/);
+  await expect(page.locator("tbody a").first()).toContainText("Acme Robotics");
+  await page.getByRole("link", { name: "Opportunity", exact: true }).click();
+  await expect(page).toHaveURL(/sort=name.*stage=opportunity|stage=opportunity.*sort=name/);
+  await expect(page.locator("tbody tr")).toHaveCount(1);
+  await page.getByRole("link", { name: "All", exact: true }).click();
+  await expect(page.locator("tbody tr")).toHaveCount(8);
+});
+
+test("approvals status filter persists in the url", async ({ page }) => {
+  await page.goto("/en/approvals");
+  await page.getByRole("link", { name: "Approved", exact: true }).click();
+  await expect(page).toHaveURL(/status=approved/);
+  await expect(
+    page.getByTestId("queue-item").filter({ hasText: "approved" }),
+  ).toHaveCount(1);
+  await page.getByRole("link", { name: "Dismissed", exact: true }).click();
+  await expect(page).toHaveURL(/status=rejected/);
+  await expect(
+    page.getByTestId("queue-item").filter({ hasText: "rejected" }),
+  ).toHaveCount(1);
+});
+
+test("segments page lists segments and creates one", async ({ page }) => {
+  await page.goto("/en/segments");
+  await expect(page.getByTestId("segment-card")).toHaveCount(2);
+  await page.getByPlaceholder("e.g. High-fit prospects").fill("AI accounts");
+  await page.getByPlaceholder("e.g. ai").fill("ai");
+  await page.getByRole("button", { name: "Create", exact: true }).click();
+  await expect(page.getByTestId("segment-card")).toHaveCount(3);
+  await expect(page.getByText("AI accounts")).toBeVisible();
+});
+
+test("run retry re-executes a failed run", async ({ page }) => {
+  await page.goto("/en/agents");
+  await page
+    .getByRole("link", { name: "Stalled Deal Recovery" })
+    .first()
+    .click();
+  await page.waitForURL("**/en/agents/*");
+  await page.locator("a", { hasText: "rejected" }).first().click();
+  await page.waitForURL("**/en/runs/*");
+  await page.getByRole("button", { name: "Retry" }).click();
+  await page.waitForURL("**/en/runs/*");
+  await expect(page.getByText("fulfilled").first()).toBeVisible();
+});
+
+test("run cancel stops a running run", async ({ page }) => {
+  await page.goto("/en/agents");
+  await page
+    .getByRole("link", { name: "Outbound to high ICP fit" })
+    .first()
+    .click();
+  await page.waitForURL("**/en/agents/*");
+  await page.locator("a", { hasText: "running" }).first().click();
+  await page.waitForURL("**/en/runs/*");
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await page.waitForLoadState("networkidle");
+  await expect(page.getByText("cancelled").first()).toBeVisible();
+});
+
+test("viewer role cannot act", async ({ browser }) => {
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  await page.goto("/en/login");
+  const signIn = page.locator("form").filter({ hasText: "Sign in" });
+  await signIn.getByPlaceholder("Email").fill("viewer@aigtm.local");
+  await signIn.getByPlaceholder("Password").fill("viewer-password");
+  await signIn.getByRole("button", { name: "Sign in", exact: true }).click();
+  await page.waitForURL("**/en/inbox");
+
+  // no quick-approve on inbox
+  await expect(
+    page.getByRole("button", { name: "Approve", exact: true }),
+  ).toHaveCount(0);
+
+  // no run buttons on agents
+  await page.goto("/en/agents");
+  await expect(
+    page.getByRole("button", { name: "Run now" }),
+  ).toHaveCount(0);
+
+  // pending approvals are view-only
+  await page.goto("/en/approvals");
+  await expect(page.getByText(/View only/).first()).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Approve", exact: true }),
+  ).toHaveCount(0);
+
+  // no segment creation form
+  await page.goto("/en/segments");
+  await expect(
+    page.getByRole("button", { name: "Create", exact: true }),
+  ).toHaveCount(0);
   await ctx.close();
 });

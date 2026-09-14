@@ -10,6 +10,7 @@
     "accounts": "Accounts",
     "deals": "Opportunities",
     "contacts": "Contacts",
+    "segments": "Segments",
     "signals": "Signals",
     "inbox": "Inbox",
     "agents": "Agents",
@@ -88,7 +89,12 @@
     "reasonPlaceholder": "Why is this being dismissed?",
     "confirmReject": "Confirm dismiss",
     "back": "Back",
-    "reasonLabel": "Reason:"
+    "reasonLabel": "Reason:",
+    "filterAll": "All",
+    "filterPending": "Pending",
+    "filterApproved": "Approved",
+    "filterRejected": "Dismissed",
+    "viewOnly": "View only — your role can't decide approvals."
   },
   "accounts": {
     "eyebrow": "Records / Accounts",
@@ -102,11 +108,41 @@
     "signals": "Signals",
     "stageNew": "New",
     "stageOpportunity": "Opportunity",
-    "stageCustomer": "Customer"
+    "stageCustomer": "Customer",
+    "sortBy": "Sort",
+    "sortScore": "Score",
+    "sortName": "Name",
+    "filterStage": "Stage",
+    "all": "All",
+    "stage_prospect": "Prospect",
+    "stage_opportunity": "Opportunity",
+    "stage_customer": "Customer"
   },
   "palette": {
-    "placeholder": "Go to a page…",
-    "empty": "No matches"
+    "placeholder": "Search or go to a page…",
+    "empty": "No matches",
+    "accounts": "Account",
+    "contacts": "Contact",
+    "deals": "Opportunity",
+    "agents": "Agent"
+  },
+  "segments": {
+    "eyebrow": "Records / Segments",
+    "title": "Segments",
+    "totalCount": "{count} segments",
+    "new": "New segment",
+    "name": "Name",
+    "namePlaceholder": "e.g. High-fit prospects",
+    "minScore": "Min score",
+    "stage": "Stage",
+    "any": "Any",
+    "industry": "Industry",
+    "industryPlaceholder": "e.g. ai",
+    "create": "Create",
+    "empty": "No segments yet.",
+    "emptyHint": "Group accounts by score, stage, or industry.",
+    "members": "{count} accounts",
+    "noFilter": "No filters — matches every account"
   },
   "account": {
     "eyebrow": "Records / Account",
@@ -134,7 +170,9 @@
   },
   "run": {
     "eyebrow": "Agents / Run",
-    "steps": "Steps"
+    "steps": "Steps",
+    "retry": "Retry",
+    "cancel": "Cancel"
   },
   "deals": {
     "eyebrow": "Records / Opportunities",

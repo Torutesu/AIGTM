@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { CheckIcon, XIcon, PencilIcon } from "./icons";
 import { Card } from "./ui";
@@ -65,6 +65,15 @@ export function ReviewPanel({
   const [body, setBody] = useState(original);
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
+
+  // Reset local edit state when a different approval is selected — React
+  // reuses this component instance across queue selections.
+  useEffect(() => {
+    setEditing(false);
+    setBody(original);
+    setRejecting(false);
+    setReason("");
+  }, [approvalId, original]);
 
   const changed = editing && body !== original;
   const diff = useMemo(

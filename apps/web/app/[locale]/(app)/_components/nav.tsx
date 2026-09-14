@@ -12,6 +12,7 @@ import {
   ZapIcon,
   UsersIcon,
   BriefcaseIcon,
+  LayersIcon,
 } from "./icons";
 
 type IconComponent = (p: {
@@ -38,6 +39,7 @@ const groups: {
       { href: "/accounts", key: "accounts", icon: BuildingIcon },
       { href: "/deals", key: "deals", icon: BriefcaseIcon },
       { href: "/contacts", key: "contacts", icon: UsersIcon },
+      { href: "/segments", key: "segments", icon: LayersIcon },
     ],
   },
   {

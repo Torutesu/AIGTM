@@ -71,17 +71,21 @@ export default async function AgentDetailPage({
   );
 
   if (!data) notFound();
-  return <AgentView locale={locale} {...data} />;
+  return (
+    <AgentView locale={locale} canAct={session.role !== "viewer"} {...data} />
+  );
 }
 
 function AgentView({
   locale,
   agent,
   runs,
+  canAct,
 }: {
   locale: string;
   agent: AgentRow;
   runs: RunRow[];
+  canAct: boolean;
 }) {
   const t = useTranslations("agent");
   const spec = agent.spec ?? {};
@@ -106,16 +110,18 @@ function AgentView({
             </p>
           ) : null}
         </div>
-        <form action={runAgentAction.bind(null, locale)}>
-          <input type="hidden" name="agentId" value={agent.id} />
-          <button
-            type="submit"
-            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-forest px-4 py-2.5 font-mono text-[11px] tracking-[0.06em] text-white uppercase transition-colors hover:bg-forest-deep"
-          >
-            <PlayIcon size={11} strokeWidth={2.4} />
-            {t("run")}
-          </button>
-        </form>
+        {canAct ? (
+          <form action={runAgentAction.bind(null, locale)}>
+            <input type="hidden" name="agentId" value={agent.id} />
+            <button
+              type="submit"
+              className="flex shrink-0 items-center gap-1.5 rounded-lg bg-forest px-4 py-2.5 font-mono text-[11px] tracking-[0.06em] text-white uppercase transition-colors hover:bg-forest-deep"
+            >
+              <PlayIcon size={11} strokeWidth={2.4} />
+              {t("run")}
+            </button>
+          </form>
+        ) : null}
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
