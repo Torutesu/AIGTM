@@ -6,11 +6,16 @@
   "nav": {
     "workspace": "ワークスペース",
     "records": "レコード",
+    "configure": "設定",
     "accounts": "アカウント",
+    "deals": "商談",
+    "contacts": "コンタクト",
+    "signals": "シグナル",
     "inbox": "インボックス",
     "agents": "エージェント",
     "approvals": "承認",
     "audit": "監査ログ",
+    "search": "検索 / 移動",
     "signOut": "サインアウト"
   },
   "auth": {
@@ -83,6 +88,70 @@
     "stageNew": "新規",
     "stageOpportunity": "商談中",
     "stageCustomer": "顧客"
+  },
+  "palette": {
+    "placeholder": "ページへ移動…",
+    "empty": "見つかりません"
+  },
+  "account": {
+    "eyebrow": "Records / Account",
+    "signals": "シグナル",
+    "noSignals": "検出されたシグナルはまだありません。",
+    "timeline": "タイムライン",
+    "noTimeline": "記録されたインタラクションはまだありません。",
+    "knowledge": "ナレッジ",
+    "noKnowledge": "蓄積されたコンテキストはまだありません。",
+    "confidence": "確度",
+    "contacts": "コンタクト",
+    "deals": "商談"
+  },
+  "agent": {
+    "eyebrow": "Agents / Detail",
+    "live": "稼働中",
+    "run": "今すぐ実行",
+    "runs": "実行履歴",
+    "noRuns": "実行履歴はまだありません。",
+    "spec": "仕様",
+    "trigger": "トリガー",
+    "approval": "承認",
+    "actions": "アクション",
+    "pipeline": "パイプライン"
+  },
+  "run": {
+    "eyebrow": "Agents / Run",
+    "steps": "ステップ"
+  },
+  "deals": {
+    "eyebrow": "Records / Opportunities",
+    "title": "商談",
+    "totalCount": "{count} 件の商談",
+    "empty": "商談はまだありません。",
+    "deal": "商談",
+    "account": "アカウント",
+    "stage": "ステージ",
+    "amount": "金額",
+    "lastActivity": "最終アクティビティ"
+  },
+  "contacts": {
+    "eyebrow": "Records / Contacts",
+    "title": "コンタクト",
+    "totalCount": "{count} 件のコンタクト",
+    "empty": "コンタクトはまだありません。",
+    "contact": "コンタクト",
+    "role": "役職",
+    "account": "アカウント",
+    "email": "メール"
+  },
+  "signals": {
+    "eyebrow": "Configure / Signals",
+    "title": "シグナル",
+    "totalCount": "{count} 種のシグナル",
+    "empty": "定義されたシグナルはまだありません。",
+    "definitions": "定義",
+    "feed": "最近の検出",
+    "noEvents": "検出はまだありません。",
+    "watching": "監視中",
+    "hits": "件ヒット"
   },
   "audit": {
     "eyebrow": "Governance / Audit",

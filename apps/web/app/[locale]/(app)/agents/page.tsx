@@ -4,6 +4,7 @@ import { setRequestLocale } from "next-intl/server";
 import { desc, eq } from "drizzle-orm";
 import { schema, withOrg } from "@aigtm/db";
 import { PlayIcon } from "../_components/icons";
+import { Link } from "../../../../i18n/routing";
 import { ensureDb } from "../../../../lib/db";
 import { requireSession } from "../../../../lib/session";
 import { runAgentAction } from "../../../../lib/actions";
@@ -90,9 +91,12 @@ function AgentsView({
               <Card className="flex h-full flex-col gap-4 p-5">
                 <div>
                   <div className="flex items-center justify-between gap-3">
-                    <p className="truncate text-[15px] font-semibold text-ink">
+                    <Link
+                      href={`/agents/${agent.id}`}
+                      className="truncate text-[15px] font-semibold text-ink hover:text-forest-deep"
+                    >
                       {agent.name}
-                    </p>
+                    </Link>
                     <Chip tone="live" dot>
                       {t("live")}
                     </Chip>
@@ -152,7 +156,9 @@ function AgentsView({
                   className="border-b border-line-soft last:border-0"
                 >
                   <td className="px-5 py-3 text-[13.5px] font-medium text-ink">
-                    {run.agentName}
+                    <Link href={`/runs/${run.id}`} className="hover:text-forest-deep">
+                      {run.agentName}
+                    </Link>
                   </td>
                   <td className="px-5 py-3">
                     <Chip tone={statusTone(run.status)}>{run.status}</Chip>

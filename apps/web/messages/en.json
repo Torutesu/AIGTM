@@ -6,11 +6,16 @@
   "nav": {
     "workspace": "Workspace",
     "records": "Records",
+    "configure": "Configure",
     "accounts": "Accounts",
+    "deals": "Opportunities",
+    "contacts": "Contacts",
+    "signals": "Signals",
     "inbox": "Inbox",
     "agents": "Agents",
     "approvals": "Approvals",
     "audit": "Audit",
+    "search": "Search or jump to",
     "signOut": "Sign out"
   },
   "auth": {
@@ -83,6 +88,70 @@
     "stageNew": "New",
     "stageOpportunity": "Opportunity",
     "stageCustomer": "Customer"
+  },
+  "palette": {
+    "placeholder": "Go to a page…",
+    "empty": "No matches"
+  },
+  "account": {
+    "eyebrow": "Records / Account",
+    "signals": "Signals",
+    "noSignals": "No signals detected yet.",
+    "timeline": "Timeline",
+    "noTimeline": "No interactions captured yet.",
+    "knowledge": "Knowledge",
+    "noKnowledge": "No learned context yet.",
+    "confidence": "confidence",
+    "contacts": "Contacts",
+    "deals": "Opportunities"
+  },
+  "agent": {
+    "eyebrow": "Agents / Detail",
+    "live": "Live",
+    "run": "Run now",
+    "runs": "Runs",
+    "noRuns": "No runs yet.",
+    "spec": "Spec",
+    "trigger": "Trigger",
+    "approval": "Approval",
+    "actions": "Actions",
+    "pipeline": "Pipeline"
+  },
+  "run": {
+    "eyebrow": "Agents / Run",
+    "steps": "Steps"
+  },
+  "deals": {
+    "eyebrow": "Records / Opportunities",
+    "title": "Opportunities",
+    "totalCount": "{count} deals",
+    "empty": "No deals yet.",
+    "deal": "Deal",
+    "account": "Account",
+    "stage": "Stage",
+    "amount": "Amount",
+    "lastActivity": "Last activity"
+  },
+  "contacts": {
+    "eyebrow": "Records / Contacts",
+    "title": "Contacts",
+    "totalCount": "{count} contacts",
+    "empty": "No contacts yet.",
+    "contact": "Contact",
+    "role": "Role",
+    "account": "Account",
+    "email": "Email"
+  },
+  "signals": {
+    "eyebrow": "Configure / Signals",
+    "title": "Signals",
+    "totalCount": "{count} signal types",
+    "empty": "No signals defined yet.",
+    "definitions": "Definitions",
+    "feed": "Recent detections",
+    "noEvents": "No detections yet.",
+    "watching": "Watching",
+    "hits": "hits"
   },
   "audit": {
     "eyebrow": "Governance / Audit",

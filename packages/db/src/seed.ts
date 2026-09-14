@@ -42,6 +42,31 @@ const stalledDealRecoverySpec = {
   learn: [{ write: { claim: "stall_reason", about: "deal", from: "find_stalled" } }],
 };
 
+const outboundSpec = {
+  name: "Outbound to high ICP fit",
+  description: "Drafts a first-touch email when an account crosses the ICP-fit threshold.",
+  trigger: { type: "event", on: "signal_event", where: { score_gte: 0.8 } },
+  steps: [
+    {
+      id: "research",
+      kind: "tool",
+      tool: "accounts.lookup",
+      input: { accountId: "$event.account_id" },
+      output: { account: "object" },
+    },
+    {
+      id: "draft",
+      kind: "llm",
+      model: "writing",
+      prompt: "prompts/first-touch.md",
+      output: { email_draft: "string" },
+    },
+  ],
+  approval: { before_act: "required" },
+  act: [{ type: "send_email", channel: "email" }],
+  learn: [{ write: { claim: "outcome", about: "account", from: "research" } }],
+};
+
 const jobPostingSignalSpec = {
   name: "First GTM hire",
   description: "Company with no prior GTM headcount posts its first GTM role.",
@@ -142,6 +167,69 @@ export async function seed(handle: Awaited<ReturnType<typeof createDb>>) {
         summary: "Asked for pricing; went quiet after legal review mention.",
         occurredAt: new Date(Date.now() - 30 * 86400_000),
       },
+      {
+        orgId: org.id,
+        accountId: nordic.id,
+        channel: "meeting",
+        subject: "Intro call — GTM stack",
+        participants: ["elena@nordic-systems.example", "admin@aigtm.local"],
+        summary: "Elena is rebuilding the outbound motion post-Series B. Evaluating tools this quarter.",
+        occurredAt: new Date(Date.now() - 6 * 86400_000),
+      },
+      {
+        orgId: org.id,
+        accountId: nordic.id,
+        channel: "email",
+        subject: "Follow-up: pilot scope",
+        participants: ["jonas@nordic-systems.example", "admin@aigtm.local"],
+        summary: "Jonas asked for a pilot scoped to the Nordics sales pod.",
+        occurredAt: new Date(Date.now() - 3 * 86400_000),
+      },
+      {
+        orgId: org.id,
+        accountId: tsubame.id,
+        channel: "email",
+        subject: "営業企画部の新設について",
+        participants: ["tanaka@tsubame.example", "admin@aigtm.local"],
+        summary: "営業企画部の立ち上げに伴い、GTM ツールの選定を開始。来月ヒアリング予定。",
+        occurredAt: new Date(Date.now() - 4 * 86400_000),
+      },
+      {
+        orgId: org.id,
+        accountId: hummingbird.id,
+        channel: "slack",
+        subject: "#growth — tool evaluation",
+        participants: ["priya@hummingbird.example"],
+        summary: "Priya shared headcount plans: 6 GTM roles this quarter.",
+        occurredAt: new Date(Date.now() - 1 * 86400_000),
+      },
+    ]);
+
+    await tx.insert(schema.knowledge).values([
+      {
+        orgId: org.id,
+        subjectType: "account",
+        subjectId: nordic.id,
+        claim: "Post-Series B; rebuilding outbound motion. Elena Marlow is the economic buyer; Jonas Berg runs RevOps evaluation.",
+        confidence: "0.9",
+        validFrom: new Date(Date.now() - 6 * 86400_000),
+      },
+      {
+        orgId: org.id,
+        subjectType: "account",
+        subjectId: nordic.id,
+        claim: "Pilot scope requested: Nordics sales pod only.",
+        confidence: "0.85",
+        validFrom: new Date(Date.now() - 3 * 86400_000),
+      },
+      {
+        orgId: org.id,
+        subjectType: "deal",
+        subjectId: stalledDeal.id,
+        claim: "Stall reason: legal review mention caused silence for 30 days.",
+        confidence: "0.7",
+        validFrom: new Date(Date.now() - 2 * 86400_000),
+      },
     ]);
 
     const [sig, execSig, fundingSig, headcountSig] = await tx
@@ -210,9 +298,12 @@ export async function seed(handle: Awaited<ReturnType<typeof createDb>>) {
       },
     ]);
 
-    const [agent] = await tx
+    const [agent, outboundAgent] = await tx
       .insert(schema.agents)
-      .values({ orgId: org.id, name: "Stalled Deal Recovery", spec: stalledDealRecoverySpec })
+      .values([
+        { orgId: org.id, name: "Stalled Deal Recovery", spec: stalledDealRecoverySpec },
+        { orgId: org.id, name: "Outbound to high ICP fit", spec: outboundSpec },
+      ])
       .returning();
 
     const [run] = await tx
@@ -222,9 +313,86 @@ export async function seed(handle: Awaited<ReturnType<typeof createDb>>) {
         agentId: agent.id,
         triggerKind: "manual",
         status: "fulfilled",
+        tokensIn: 1240,
+        tokensOut: 380,
         finishedAt: new Date(),
       })
       .returning();
+
+    await tx.insert(schema.runSteps).values([
+      {
+        orgId: org.id,
+        runId: run.id,
+        stepId: "find_stalled",
+        kind: "tool",
+        tool: "deals.stalled",
+        input: { days: 14 },
+        output: { deals: [{ id: stalledDeal.id, name: stalledDeal.name, stage: "negotiation" }] },
+        latencyMs: 103,
+      },
+      {
+        orgId: org.id,
+        runId: run.id,
+        stepId: "diagnose",
+        kind: "llm",
+        model: "mock:reasoning",
+        output: {
+          stall_reason: "Went quiet after legal review mention",
+          evidence: ["Re: Platform pricing — 30 days no reply"],
+        },
+        tokensIn: 640,
+        tokensOut: 120,
+        latencyMs: 412,
+      },
+      {
+        orgId: org.id,
+        runId: run.id,
+        stepId: "draft",
+        kind: "llm",
+        model: "mock:writing",
+        output: { note_draft: "[mock] draft recovery note referencing last thread" },
+        tokensIn: 600,
+        tokensOut: 260,
+        latencyMs: 388,
+      },
+    ]);
+
+    const [run2] = await tx
+      .insert(schema.runs)
+      .values({
+        orgId: org.id,
+        agentId: outboundAgent.id,
+        triggerKind: "event",
+        triggerContext: { signal: "Executive hire", account: "Nordic Systems", score: 0.96 },
+        status: "fulfilled",
+        tokensIn: 820,
+        tokensOut: 210,
+        finishedAt: new Date(Date.now() - 3600_000),
+      })
+      .returning();
+
+    await tx.insert(schema.runSteps).values([
+      {
+        orgId: org.id,
+        runId: run2.id,
+        stepId: "research",
+        kind: "tool",
+        tool: "accounts.lookup",
+        output: { account: { name: "Nordic Systems", icpFitScore: 96, stage: "prospect" } },
+        latencyMs: 87,
+      },
+      {
+        orgId: org.id,
+        runId: run2.id,
+        stepId: "draft",
+        kind: "llm",
+        model: "mock:writing",
+        output: { email_draft: "[mock] first-touch draft for Nordic Systems" },
+        tokensIn: 820,
+        tokensOut: 210,
+        latencyMs: 502,
+      },
+    ]);
 
     const [ob] = await tx
       .insert(schema.outbox)
@@ -273,7 +441,7 @@ export async function seed(handle: Awaited<ReturnType<typeof createDb>>) {
       .insert(schema.outbox)
       .values({
         orgId: org.id,
-        runId: run.id,
+        runId: run2.id,
         kind: "draft_email",
         payload: {
           action: "send_email",
@@ -290,7 +458,7 @@ export async function seed(handle: Awaited<ReturnType<typeof createDb>>) {
       .insert(schema.approvals)
       .values({
         orgId: org.id,
-        runId: run.id,
+        runId: run2.id,
         outboxId: ob2.id,
         kind: "review_action",
         payload: {

@@ -3,6 +3,7 @@ import { useTranslations } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
 import { desc, eq, inArray } from "drizzle-orm";
 import { schema, withOrg } from "@aigtm/db";
+import { Link } from "../../../../i18n/routing";
 import { ensureDb } from "../../../../lib/db";
 import { requireSession } from "../../../../lib/session";
 import {
@@ -158,19 +159,22 @@ function AccountsView({
                     className="border-b border-line-soft last:border-0 hover:bg-paper/60"
                   >
                     <td className="px-5 py-3">
-                      <div className="flex items-center gap-3">
+                      <Link
+                        href={`/accounts/${a.id}`}
+                        className="flex items-center gap-3"
+                      >
                         <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-forest font-mono text-[11px] text-white">
                           {a.name.slice(0, 1)}
                         </span>
                         <div className="min-w-0">
-                          <p className="truncate text-[13.5px] font-medium text-ink">
+                          <p className="truncate text-[13.5px] font-medium text-ink group-hover:text-forest-deep">
                             {a.name}
                           </p>
                           <p className="truncate font-mono text-[11px] text-ink-faint">
                             {a.domain}
                           </p>
                         </div>
-                      </div>
+                      </Link>
                     </td>
                     <td className="px-4 py-3">
                       <ScoreBar score={a.icpFitScore} />

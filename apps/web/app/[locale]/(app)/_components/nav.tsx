@@ -9,6 +9,9 @@ import {
   ShieldCheckIcon,
   FileTextIcon,
   BuildingIcon,
+  ZapIcon,
+  UsersIcon,
+  BriefcaseIcon,
 } from "./icons";
 
 type IconComponent = (p: {
@@ -25,14 +28,24 @@ const groups: {
     key: "workspace",
     items: [
       { href: "/inbox", key: "inbox", icon: InboxIcon },
-      { href: "/agents", key: "agents", icon: BotIcon },
       { href: "/approvals", key: "approvals", icon: ShieldCheckIcon },
-      { href: "/audit", key: "audit", icon: FileTextIcon },
+      { href: "/agents", key: "agents", icon: BotIcon },
     ],
   },
   {
     key: "records",
-    items: [{ href: "/accounts", key: "accounts", icon: BuildingIcon }],
+    items: [
+      { href: "/accounts", key: "accounts", icon: BuildingIcon },
+      { href: "/deals", key: "deals", icon: BriefcaseIcon },
+      { href: "/contacts", key: "contacts", icon: UsersIcon },
+    ],
+  },
+  {
+    key: "configure",
+    items: [
+      { href: "/signals", key: "signals", icon: ZapIcon },
+      { href: "/audit", key: "audit", icon: FileTextIcon },
+    ],
   },
 ];
 

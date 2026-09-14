@@ -6,6 +6,7 @@ import { requireSession } from "../../../lib/session";
 import { signOutAction } from "../../../lib/actions";
 import { Link } from "../../../i18n/routing";
 import { SideNav } from "./_components/nav";
+import { CommandPalette } from "./_components/palette";
 
 export const dynamic = "force-dynamic";
 
@@ -46,7 +47,11 @@ function Shell({
           </Link>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-3 py-5">
+        <div className="px-3 pt-4">
+          <CommandPalette />
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-3 py-4">
           <SideNav />
         </div>
 

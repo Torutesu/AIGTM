@@ -38,6 +38,38 @@ test("running an agent creates a fulfilled run", async ({ page }) => {
   await expect(page.getByText("fulfilled").first()).toBeVisible();
 });
 
+test("accounts list navigates to account 360", async ({ page }) => {
+  await page.goto("/en/accounts");
+  await page.locator("tbody a").first().click();
+  await page.waitForURL("**/en/accounts/*");
+  await expect(page.getByText("Timeline")).toBeVisible();
+  await expect(page.getByText("Knowledge")).toBeVisible();
+});
+
+test("agent card navigates to agent detail with runs", async ({ page }) => {
+  await page.goto("/en/agents");
+  await page.getByTestId("agent-card").first().getByRole("link").first().click();
+  await page.waitForURL("**/en/agents/*");
+  await expect(page.getByText("Pipeline")).toBeVisible();
+  await expect(page.getByText("Runs")).toBeVisible();
+});
+
+test("deals, contacts and signals pages render", async ({ page }) => {
+  await page.goto("/en/deals");
+  await expect(page.getByRole("heading", { name: "Opportunities" })).toBeVisible();
+  await page.goto("/en/contacts");
+  await expect(page.getByRole("heading", { name: "Contacts" })).toBeVisible();
+  await page.goto("/en/signals");
+  await expect(page.getByTestId("signal-def").first()).toBeVisible();
+});
+
+test("command palette opens and navigates", async ({ page }) => {
+  await page.getByRole("button", { name: /Search or jump to/ }).click();
+  await page.getByPlaceholder("Go to a page…").fill("appro");
+  await page.keyboard.press("Enter");
+  await page.waitForURL("**/en/approvals");
+});
+
 test("ja locale renders Japanese UI", async ({ page }) => {
   await page.goto("/ja/inbox");
   await expect(
