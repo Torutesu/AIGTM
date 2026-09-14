@@ -7,6 +7,7 @@ import { signOutAction } from "../../../lib/actions";
 import { Link } from "../../../i18n/routing";
 import { SideNav } from "./_components/nav";
 import { CommandPalette } from "./_components/palette";
+import { MobileNav } from "./_components/mobile-nav";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +41,7 @@ function Shell({
   const other = locale === "en" ? "ja" : "en";
   return (
     <div className="flex min-h-screen">
-      <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col border-r border-line bg-paper">
+      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-line bg-paper lg:flex">
         <div className="flex h-16 items-center border-b border-line-soft px-5">
           <Link href="/inbox" className="flex items-baseline gap-2">
             <span className="wordmark text-[22px] font-bold">AIGTM</span>
@@ -86,9 +87,21 @@ function Shell({
         </div>
       </aside>
 
-      <main className="min-w-0 flex-1">
-        <div className="mx-auto max-w-5xl px-8 py-8">{children}</div>
-      </main>
+      <div className="min-w-0 flex-1">
+        <header className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-line bg-paper px-4 lg:hidden">
+          <MobileNav
+            email={email}
+            locale={locale}
+            signOut={signOutAction.bind(null, locale)}
+          />
+          <span className="wordmark text-[18px] font-bold">AIGTM</span>
+        </header>
+        <main>
+          <div className="mx-auto max-w-5xl px-4 py-6 sm:px-8 sm:py-8">
+            {children}
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

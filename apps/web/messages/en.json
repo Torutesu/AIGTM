@@ -16,6 +16,8 @@
     "approvals": "Approvals",
     "audit": "Audit",
     "search": "Search or jump to",
+    "menu": "Menu",
+    "close": "Close",
     "signOut": "Sign out"
   },
   "auth": {
@@ -40,7 +42,11 @@
     "review": "Review",
     "approve": "Approve",
     "reject": "Reject",
-    "score": "score"
+    "score": "score",
+    "statPending": "Awaiting review",
+    "statSignals": "Signals · 7d",
+    "statAgents": "Agents live",
+    "statRuns": "Runs · 7d"
   },
   "agents": {
     "eyebrow": "Agents / Library",
@@ -73,7 +79,16 @@
     "draft": "Draft artifact",
     "decidedAt": "Decided",
     "approve": "Approve",
-    "reject": "Dismiss"
+    "reject": "Dismiss",
+    "edit": "Edit",
+    "cancelEdit": "Cancel edit",
+    "diff": "Your changes",
+    "approveEdited": "Approve edited",
+    "rejectReason": "Dismiss reason",
+    "reasonPlaceholder": "Why is this being dismissed?",
+    "confirmReject": "Confirm dismiss",
+    "back": "Back",
+    "reasonLabel": "Reason:"
   },
   "accounts": {
     "eyebrow": "Records / Accounts",
@@ -165,5 +180,16 @@
   },
   "common": {
     "locale": "Language"
+  },
+  "error": {
+    "eyebrow": "Error",
+    "title": "Something went wrong",
+    "body": "The page failed to load. Your data is safe — try again.",
+    "retry": "Retry"
+  },
+  "notFound": {
+    "title": "Page not found",
+    "body": "This record doesn't exist or you don't have access to it.",
+    "back": "Back to inbox"
   }
 }

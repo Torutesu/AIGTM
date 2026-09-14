@@ -29,6 +29,7 @@ export async function decideApproval(
   approvalId: string,
   decision: "approved" | "rejected",
   reason?: string,
+  edits?: { body?: string },
 ) {
   return withOrg(handle, { ...ctx, actorType: "user" }, async (tx) => {
     const [ap] = await tx
@@ -48,18 +49,35 @@ export async function decideApproval(
       })
       .where(eq(schema.approvals.id, approvalId));
 
+    const edited = decision === "approved" && edits?.body != null;
     await audit(tx, ctx, {
       action: "approval.decided",
       entityType: "approval",
       entityId: approvalId,
-      detail: { decision, reason: reason ?? null },
+      detail: { decision, reason: reason ?? null, edited },
     });
 
     if (ap.outboxId) {
       if (decision === "approved") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const set: Record<string, any> = { status: "released" };
+        if (edits?.body != null) {
+          const [cur] = await tx
+            .select({ payload: schema.outbox.payload })
+            .from(schema.outbox)
+            .where(eq(schema.outbox.id, ap.outboxId))
+            .limit(1);
+          set.payload = {
+            ...(typeof cur?.payload === "object" && cur.payload !== null
+              ? (cur.payload as Record<string, unknown>)
+              : {}),
+            body: edits.body,
+            editedBy: ctx.userId,
+          };
+        }
         await tx
           .update(schema.outbox)
-          .set({ status: "released" })
+          .set(set)
           .where(eq(schema.outbox.id, ap.outboxId));
         await dispatchMock(tx, ctx, ap.outboxId);
       } else {

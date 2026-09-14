@@ -68,11 +68,15 @@ export async function decideApprovalAction(locale: string, formData: FormData) {
   if (!session) redirect(`/${locale}/login`);
   const approvalId = String(formData.get("approvalId") ?? "");
   const decision = String(formData.get("decision")) === "rejected" ? "rejected" : "approved";
+  const reason = String(formData.get("reason") ?? "").trim() || undefined;
+  const editedBody = formData.get("editedBody");
   await decideApproval(
     handle,
     { orgId: session.orgId, userId: session.userId },
     approvalId,
     decision,
+    reason,
+    editedBody == null ? undefined : { body: String(editedBody) },
   );
   revalidatePath(`/${locale}/inbox`);
   revalidatePath(`/${locale}/approvals`);

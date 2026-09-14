@@ -16,6 +16,8 @@
     "approvals": "承認",
     "audit": "監査ログ",
     "search": "検索 / 移動",
+    "menu": "メニュー",
+    "close": "閉じる",
     "signOut": "サインアウト"
   },
   "auth": {
@@ -40,7 +42,11 @@
     "review": "要レビュー",
     "approve": "承認",
     "reject": "却下",
-    "score": "スコア"
+    "score": "スコア",
+    "statPending": "レビュー待ち",
+    "statSignals": "シグナル・7日",
+    "statAgents": "稼働エージェント",
+    "statRuns": "実行数・7日"
   },
   "agents": {
     "eyebrow": "Agents / Library",
@@ -73,7 +79,16 @@
     "draft": "ドラフト",
     "decidedAt": "判定日時",
     "approve": "承認",
-    "reject": "却下"
+    "reject": "却下",
+    "edit": "編集",
+    "cancelEdit": "編集をやめる",
+    "diff": "変更内容",
+    "approveEdited": "編集を反映して承認",
+    "rejectReason": "却下理由",
+    "reasonPlaceholder": "却下する理由を入力",
+    "confirmReject": "却下を確定",
+    "back": "戻る",
+    "reasonLabel": "理由:"
   },
   "accounts": {
     "eyebrow": "Records / Accounts",
@@ -165,5 +180,16 @@
   },
   "common": {
     "locale": "言語"
+  },
+  "error": {
+    "eyebrow": "エラー",
+    "title": "問題が発生しました",
+    "body": "ページの読み込みに失敗しました。データは安全です。もう一度お試しください。",
+    "retry": "再試行"
+  },
+  "notFound": {
+    "title": "ページが見つかりません",
+    "body": "このレコードは存在しないか、アクセス権がありません。",
+    "back": "Inbox へ戻る"
   }
 }

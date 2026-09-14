@@ -3,8 +3,8 @@ import { useTranslations } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
 import { desc, eq } from "drizzle-orm";
 import { schema, withOrg } from "@aigtm/db";
-import { CheckIcon, XIcon } from "../_components/icons";
 import { Link } from "../../../../i18n/routing";
+import { ReviewPanel } from "../_components/review-panel";
 import { ensureDb } from "../../../../lib/db";
 import { requireSession } from "../../../../lib/session";
 import { decideApprovalAction } from "../../../../lib/actions";
@@ -20,6 +20,7 @@ import {
 interface ApprovalRow {
   id: string;
   status: string;
+  reason: string | null;
   createdAt: Date | string;
   decidedAt: Date | string | null;
   payload: {
@@ -58,6 +59,7 @@ export default async function ApprovalsPage({
         .select({
           id: schema.approvals.id,
           status: schema.approvals.status,
+          reason: schema.approvals.reason,
           createdAt: schema.approvals.createdAt,
           decidedAt: schema.approvals.decidedAt,
           payload: schema.approvals.payload,
@@ -196,73 +198,42 @@ function Detail({ locale, row }: { locale: string; row: ApprovalRow }) {
         ) : null}
       </Card>
 
-      {draft?.subject || draft?.body || draft?.title ? (
+      {pending ? (
+        <ReviewPanel
+          approvalId={row.id}
+          draft={draft}
+          decideAction={decideApprovalAction.bind(null, locale)}
+        />
+      ) : (
+        <div className="font-mono text-[11px] text-ink-faint">
+          <p>
+            {t("decidedAt")} {row.decidedAt ? timeAgo(row.decidedAt, locale) : "—"}
+          </p>
+          {row.reason ? (
+            <p className="mt-1.5 text-ink-soft">
+              {t("reasonLabel")} {row.reason}
+            </p>
+          ) : null}
+        </div>
+      )}
+
+      {!pending && (draft?.subject || draft?.body || draft?.title) ? (
         <Card className="px-5 py-4">
           <p className="mb-3 font-mono text-[10px] tracking-label text-ink-faint uppercase">
             {t("draft")}
           </p>
-          <dl className="flex flex-col gap-1.5 border-b border-line-soft pb-3 text-[13px]">
-            {draft.from ? (
-              <div className="flex gap-3">
-                <dt className="w-14 font-mono text-[11px] text-ink-faint">From</dt>
-                <dd className="text-ink">{draft.from}</dd>
-              </div>
-            ) : null}
-            {draft.to ? (
-              <div className="flex gap-3">
-                <dt className="w-14 font-mono text-[11px] text-ink-faint">To</dt>
-                <dd className="text-ink">{draft.to}</dd>
-              </div>
-            ) : null}
-            {draft.subject || draft.title ? (
-              <div className="flex gap-3">
-                <dt className="w-14 font-mono text-[11px] text-ink-faint">
-                  Subject
-                </dt>
-                <dd className="font-medium text-ink">
-                  {draft.subject ?? draft.title}
-                </dd>
-              </div>
-            ) : null}
-          </dl>
+          {draft.subject || draft.title ? (
+            <p className="text-[13px] font-medium text-ink">
+              {draft.subject ?? draft.title}
+            </p>
+          ) : null}
           {draft.body ? (
-            <p className="pt-3 text-[13.5px] leading-relaxed whitespace-pre-wrap text-ink">
+            <p className="mt-2 text-[13.5px] leading-relaxed whitespace-pre-wrap text-ink-soft">
               {draft.body}
             </p>
           ) : null}
         </Card>
       ) : null}
-
-      {pending ? (
-        <div className="flex gap-2">
-          <form action={decideApprovalAction.bind(null, locale)}>
-            <input type="hidden" name="approvalId" value={row.id} />
-            <input type="hidden" name="decision" value="approved" />
-            <button
-              type="submit"
-              className="flex items-center gap-1.5 rounded-lg bg-forest px-5 py-2.5 font-mono text-[11px] tracking-[0.06em] text-white uppercase transition-colors hover:bg-forest-deep"
-            >
-              <CheckIcon size={13} strokeWidth={2.2} />
-              {t("approve")}
-            </button>
-          </form>
-          <form action={decideApprovalAction.bind(null, locale)}>
-            <input type="hidden" name="approvalId" value={row.id} />
-            <input type="hidden" name="decision" value="rejected" />
-            <button
-              type="submit"
-              className="flex items-center gap-1.5 rounded-lg border border-line bg-card px-5 py-2.5 font-mono text-[11px] tracking-[0.06em] text-ink-soft uppercase transition-colors hover:border-ink-faint hover:text-ink"
-            >
-              <XIcon size={13} strokeWidth={2.2} />
-              {t("reject")}
-            </button>
-          </form>
-        </div>
-      ) : (
-        <p className="font-mono text-[11px] text-ink-faint">
-          {t("decidedAt")} {row.decidedAt ? timeAgo(row.decidedAt, locale) : "—"}
-        </p>
-      )}
     </div>
   );
 }

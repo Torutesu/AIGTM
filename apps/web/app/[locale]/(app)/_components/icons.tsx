@@ -140,6 +140,20 @@ export const PlayIcon = (p: P) => (
   </IconBase>
 );
 
+export const PencilIcon = (p: P) => (
+  <IconBase {...p}>
+    <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+  </IconBase>
+);
+
+export const MenuIcon = (p: P) => (
+  <IconBase {...p}>
+    <line x1="4" y1="7" x2="20" y2="7" />
+    <line x1="4" y1="12" x2="20" y2="12" />
+    <line x1="4" y1="17" x2="20" y2="17" />
+  </IconBase>
+);
+
 export const SearchIcon = (p: P) => (
   <IconBase {...p}>
     <circle cx="11" cy="11" r="8" />

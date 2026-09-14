@@ -1,13 +1,14 @@
 export const dynamic = "force-dynamic";
 import { useTranslations } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, gte, sql } from "drizzle-orm";
 import { schema, withOrg } from "@aigtm/db";
 import { CheckIcon, XIcon } from "../_components/icons";
+import { Link } from "../../../../i18n/routing";
 import { ensureDb } from "../../../../lib/db";
 import { requireSession } from "../../../../lib/session";
 import { decideApprovalAction } from "../../../../lib/actions";
-import { PageHeader, Chip, Card, EmptyState, ScoreBar, timeAgo } from "../_components/ui";
+import { PageHeader, Card, EmptyState, ScoreBar, timeAgo } from "../_components/ui";
 
 interface ApprovalRow {
   id: string;
@@ -60,23 +61,60 @@ export default async function InboxPage({
         .leftJoin(schema.accounts, eq(schema.signalEvents.accountId, schema.accounts.id))
         .orderBy(desc(schema.signalEvents.detectedAt))
         .limit(20)) as SignalEventRow[];
-      return { pending, events };
+      const weekAgo = new Date(Date.now() - 7 * 86400_000);
+      const [weekSignals] = (await tx
+        .select({ count: sql<number>`count(*)::int` })
+        .from(schema.signalEvents)
+        .where(gte(schema.signalEvents.detectedAt, weekAgo))) as { count: number }[];
+      const [liveAgents] = (await tx
+        .select({ count: sql<number>`count(*)::int` })
+        .from(schema.agents)
+        .where(eq(schema.agents.enabled, true))) as { count: number }[];
+      const [weekRuns] = (await tx
+        .select({ count: sql<number>`count(*)::int` })
+        .from(schema.runs)
+        .where(gte(schema.runs.startedAt, weekAgo))) as { count: number }[];
+      return {
+        pending,
+        events,
+        stats: {
+          pending: pending.length,
+          weekSignals: weekSignals?.count ?? 0,
+          liveAgents: liveAgents?.count ?? 0,
+          weekRuns: weekRuns?.count ?? 0,
+        },
+      };
     },
   );
 
-  return <InboxView locale={locale} pending={data.pending} events={data.events} />;
+  return (
+    <InboxView
+      locale={locale}
+      pending={data.pending}
+      events={data.events}
+      stats={data.stats}
+    />
+  );
 }
 
 function InboxView({
   locale,
   pending,
   events,
+  stats,
 }: {
   locale: string;
   pending: ApprovalRow[];
   events: SignalEventRow[];
+  stats: { pending: number; weekSignals: number; liveAgents: number; weekRuns: number };
 }) {
   const t = useTranslations("inbox");
+  const cards = [
+    { label: t("statPending"), value: stats.pending, href: "/approvals" },
+    { label: t("statSignals"), value: stats.weekSignals, href: "/signals" },
+    { label: t("statAgents"), value: stats.liveAgents, href: "/agents" },
+    { label: t("statRuns"), value: stats.weekRuns, href: "/agents" },
+  ];
   return (
     <div>
       <PageHeader
@@ -84,6 +122,21 @@ function InboxView({
         title={t("title")}
         meta={t("pendingCount", { count: pending.length })}
       />
+
+      <section className="mb-10 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {cards.map((c) => (
+          <Link key={c.label} href={c.href}>
+            <Card className="px-5 py-4 transition-shadow hover:shadow-raised">
+              <p className="font-mono text-[10px] tracking-label text-ink-faint uppercase">
+                {c.label}
+              </p>
+              <p className="mt-2 text-[28px] leading-none font-semibold tracking-tight text-forest-deep tabular-nums">
+                {c.value}
+              </p>
+            </Card>
+          </Link>
+        ))}
+      </section>
 
       <section className="mb-10">
         <h2 className="mb-3 font-mono text-[11px] tracking-label text-ink-soft uppercase">
@@ -104,9 +157,6 @@ function InboxView({
                           <span className="truncate text-[15px] font-semibold text-ink">
                             {ap.payload?.agent ?? "agent"}
                           </span>
-                          <Chip tone="pending" dot>
-                            {t("review")}
-                          </Chip>
                         </div>
                         <p className="mt-1 font-mono text-[12px] text-ink-soft">
                           {ap.payload?.action}
@@ -139,17 +189,13 @@ function InboxView({
                             {t("approve")}
                           </button>
                         </form>
-                        <form action={decideApprovalAction.bind(null, locale)}>
-                          <input type="hidden" name="approvalId" value={ap.id} />
-                          <input type="hidden" name="decision" value="rejected" />
-                          <button
-                            type="submit"
-                            className="flex items-center gap-1.5 rounded-lg border border-line bg-card px-4 py-2 font-mono text-[11px] tracking-[0.06em] text-ink-soft uppercase transition-colors hover:border-ink-faint hover:text-ink"
-                          >
-                            <XIcon size={13} strokeWidth={2.2} />
-                            {t("reject")}
-                          </button>
-                        </form>
+                        <Link
+                          href={`/approvals?selected=${ap.id}`}
+                          className="flex items-center gap-1.5 rounded-lg border border-line bg-card px-4 py-2 font-mono text-[11px] tracking-[0.06em] text-ink-soft uppercase transition-colors hover:border-ink-faint hover:text-ink"
+                        >
+                          <XIcon size={13} strokeWidth={2.2} />
+                          {t("review")}
+                        </Link>
                       </div>
                     </div>
                   </Card>
