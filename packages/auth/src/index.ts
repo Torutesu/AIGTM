@@ -7,7 +7,48 @@ import {
   type DbHandle,
 } from "@aigtm/db";
 
-const SESSION_TTL_MS = 7 * 86400_000;
+const SESSION_TTL_MS =
+  Number(process.env.AIGTM_SESSION_TTL_HOURS ?? 168) * 3600_000;
+
+/* Sign-in throttling: in-memory per-email failure counter. 5 failures in
+ * a 10-minute window locks that email for 60s. Process-local — sufficient
+ * for a single-node deploy; move to a shared store when scaling out. */
+const SIGNIN_WINDOW_MS = 10 * 60_000;
+const SIGNIN_MAX_FAILS = 5;
+const SIGNIN_LOCK_MS = 60_000;
+const failures = new Map<string, { count: number; first: number; lockedUntil: number }>();
+
+export class SignInLocked extends Error {
+  constructor(public retryAfterMs: number) {
+    super("too many failed sign-in attempts");
+    this.name = "SignInLocked";
+  }
+}
+
+// Valid-format hash used to keep verify timing uniform for unknown emails.
+const DUMMY_HASH = hashPassword("timing-equalizer");
+
+function checkThrottle(email: string) {
+  const f = failures.get(email);
+  if (!f) return;
+  if (f.lockedUntil > Date.now()) throw new SignInLocked(f.lockedUntil - Date.now());
+  if (Date.now() - f.first > SIGNIN_WINDOW_MS) failures.delete(email);
+}
+
+function recordFailure(email: string) {
+  const now = Date.now();
+  const f = failures.get(email);
+  if (!f || now - f.first > SIGNIN_WINDOW_MS) {
+    failures.set(email, { count: 1, first: now, lockedUntil: 0 });
+    return;
+  }
+  f.count++;
+  if (f.count >= SIGNIN_MAX_FAILS) f.lockedUntil = now + SIGNIN_LOCK_MS;
+}
+
+function clearFailures(email: string) {
+  failures.delete(email);
+}
 
 export interface SessionInfo {
   userId: string;
@@ -48,13 +89,22 @@ export async function signIn(
   handle: DbHandle,
   input: { email: string; password: string },
 ): Promise<{ token: string; session: SessionInfo } | null> {
+  const email = input.email.toLowerCase();
+  checkThrottle(email);
   const db = handle.db;
   const [user] = await db
     .select()
     .from(schema.users)
-    .where(eq(schema.users.email, input.email.toLowerCase()))
+    .where(eq(schema.users.email, email))
     .limit(1);
-  if (!user || !verifyPassword(input.password, user.passwordHash)) return null;
+  // verify a fixed dummy hash for unknown emails so lookup timing doesn't
+  // reveal whether the account exists
+  const ok = verifyPassword(input.password, user?.passwordHash ?? DUMMY_HASH);
+  if (!user || !ok) {
+    recordFailure(email);
+    return null;
+  }
+  clearFailures(email);
 
   const [membership] = await db
     .select()
@@ -97,6 +147,14 @@ export async function getSession(handle: DbHandle, token: string | undefined) {
     .limit(1);
   const row = rows[0];
   if (!row) return null;
+  // sliding expiration: extend sessions past their half-life
+  const remaining = row.session.expiresAt.getTime() - Date.now();
+  if (remaining < SESSION_TTL_MS / 2) {
+    await db
+      .update(schema.sessions)
+      .set({ expiresAt: new Date(Date.now() + SESSION_TTL_MS) })
+      .where(eq(schema.sessions.id, row.session.id));
+  }
   return {
     userId: row.user.id,
     email: row.user.email,

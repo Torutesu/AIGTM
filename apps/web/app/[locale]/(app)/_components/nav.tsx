@@ -13,6 +13,7 @@ import {
   UsersIcon,
   BriefcaseIcon,
   LayersIcon,
+  SettingsIcon,
 } from "./icons";
 
 type IconComponent = (p: {
@@ -23,7 +24,7 @@ type IconComponent = (p: {
 
 const groups: {
   key: string;
-  items: { href: string; key: string; icon: IconComponent }[];
+  items: { href: string; key: string; icon: IconComponent; adminOnly?: boolean }[];
 }[] = [
   {
     key: "workspace",
@@ -47,11 +48,17 @@ const groups: {
     items: [
       { href: "/signals", key: "signals", icon: ZapIcon },
       { href: "/audit", key: "audit", icon: FileTextIcon },
+      {
+        href: "/settings",
+        key: "settings",
+        icon: SettingsIcon,
+        adminOnly: true,
+      },
     ],
   },
 ];
 
-export function SideNav() {
+export function SideNav({ role }: { role?: string }) {
   const t = useTranslations("nav");
   const pathname = usePathname();
   return (
@@ -62,7 +69,9 @@ export function SideNav() {
             {t(group.key)}
           </p>
           <nav className="flex flex-col gap-0.5">
-            {group.items.map(({ href, key, icon: Icon }) => {
+            {group.items
+              .filter((i) => !i.adminOnly || role === "admin")
+              .map(({ href, key, icon: Icon }) => {
               const active = pathname.startsWith(href);
               return (
                 <Link

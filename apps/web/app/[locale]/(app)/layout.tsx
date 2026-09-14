@@ -22,7 +22,7 @@ export default async function AppLayout({
   setRequestLocale(locale);
   const session = await requireSession(locale);
   return (
-    <Shell locale={locale} email={session.email}>
+    <Shell locale={locale} email={session.email} role={session.role}>
       {children}
     </Shell>
   );
@@ -32,10 +32,12 @@ function Shell({
   children,
   locale,
   email,
+  role,
 }: {
   children: ReactNode;
   locale: string;
   email: string;
+  role: string;
 }) {
   const t = useTranslations("nav");
   const other = locale === "en" ? "ja" : "en";
@@ -53,7 +55,7 @@ function Shell({
         </div>
 
         <div className="flex-1 overflow-y-auto px-3 py-4">
-          <SideNav />
+          <SideNav role={role} />
         </div>
 
         <div className="border-t border-line-soft px-3 py-4">
@@ -92,6 +94,7 @@ function Shell({
           <MobileNav
             email={email}
             locale={locale}
+            role={role}
             signOut={signOutAction.bind(null, locale)}
           />
           <span className="wordmark text-[18px] font-bold">AIGTM</span>

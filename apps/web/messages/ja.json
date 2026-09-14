@@ -16,6 +16,7 @@
     "agents": "エージェント",
     "approvals": "承認",
     "audit": "監査ログ",
+    "settings": "設定",
     "search": "検索 / 移動",
     "menu": "メニュー",
     "close": "閉じる",
@@ -29,6 +30,8 @@
     "name": "名前",
     "orgName": "ワークスペース名",
     "invalid": "メールアドレスまたはパスワードが正しくありません",
+    "errorInvalid": "メールアドレスまたはパスワードが正しくありません",
+    "errorLocked": "失敗が多すぎます。1分ほど待ってから再度お試しください。",
     "haveAccount": "既存ワークスペースにサインイン",
     "needAccount": "新しいワークスペースを作成"
   },
@@ -142,7 +145,30 @@
     "empty": "セグメントはまだありません。",
     "emptyHint": "スコア・ステージ・業種でアカウントをグループ化します。",
     "members": "{count} 件",
-    "noFilter": "条件なし — すべてのアカウントに一致"
+    "noFilter": "条件なし — すべてのアカウントに一致",
+    "edit": "編集",
+    "save": "保存",
+    "delete": "削除",
+    "deleteConfirm": "このセグメントを削除しますか？アカウントは削除されません。"
+  },
+  "settings": {
+    "eyebrow": "ワークスペース / 設定",
+    "title": "設定",
+    "memberCount": "{count} 名のメンバー",
+    "addMember": "メンバーを追加",
+    "email": "メールアドレス",
+    "name": "名前",
+    "namePlaceholder": "チームメンバー",
+    "password": "パスワード",
+    "role": "ロール",
+    "add": "追加",
+    "empty": "メンバーが見つかりません。",
+    "you": "あなた",
+    "save": "保存",
+    "remove": "削除",
+    "removeConfirm": "ワークスペースから削除しますか？",
+    "rolesNote": "admin はメンバーと設定を管理します。editor はエージェント実行と承認が可能です。viewer は閲覧のみです。",
+    "adminOnly": "ワークスペース設定は admin のみ閲覧できます。"
   },
   "account": {
     "eyebrow": "Records / Account",

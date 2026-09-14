@@ -9,10 +9,12 @@ import { SideNav } from "./nav";
 export function MobileNav({
   email,
   locale,
+  role,
   signOut,
 }: {
   email: string;
   locale: string;
+  role: string;
   signOut: () => Promise<void>;
 }) {
   const t = useTranslations("nav");
@@ -60,7 +62,7 @@ export function MobileNav({
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-3 py-4">
-              <SideNav />
+              <SideNav role={role} />
             </div>
             <div className="border-t border-line-soft px-3 py-4">
               <div className="flex items-center gap-2.5 px-3 py-1.5">

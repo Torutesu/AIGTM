@@ -177,8 +177,11 @@ test("approvals status filter persists in the url", async ({ page }) => {
 test("segments page lists segments and creates one", async ({ page }) => {
   await page.goto("/en/segments");
   await expect(page.getByTestId("segment-card")).toHaveCount(2);
-  await page.getByPlaceholder("e.g. High-fit prospects").fill("AI accounts");
-  await page.getByPlaceholder("e.g. ai").fill("ai");
+  const createForm = page
+    .locator("form")
+    .filter({ has: page.getByRole("button", { name: "Create", exact: true }) });
+  await createForm.getByPlaceholder("e.g. High-fit prospects").fill("AI accounts");
+  await createForm.getByPlaceholder("e.g. ai").fill("ai");
   await page.getByRole("button", { name: "Create", exact: true }).click();
   await expect(page.getByTestId("segment-card")).toHaveCount(3);
   await expect(page.getByText("AI accounts")).toBeVisible();
@@ -245,5 +248,60 @@ test("viewer role cannot act", async ({ browser }) => {
   await expect(
     page.getByRole("button", { name: "Create", exact: true }),
   ).toHaveCount(0);
+
+  // settings is admin-only
+  await page.goto("/en/settings");
+  await expect(page.getByText("Only admins can view")).toBeVisible();
+  await ctx.close();
+});
+
+test("settings: admin lists members and can add one", async ({ page }) => {
+  await page.goto("/en/settings");
+  await expect(page.getByTestId("member-row")).toHaveCount(2); // admin + viewer
+  await page.getByPlaceholder("teammate@corp.example").fill("new@aigtm.local");
+  await page.locator('input[name="name"]').fill("New Member");
+  await page.locator('input[name="password"]').fill("member-password");
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  await page.waitForLoadState("networkidle");
+  await expect(page.getByTestId("member-row")).toHaveCount(3);
+  await expect(page.getByText("New Member")).toBeVisible();
+});
+
+test("segments: edit filters and delete", async ({ page }) => {
+  await page.goto("/en/segments");
+  const card = page.getByTestId("segment-card").first();
+  const initial = await page.getByTestId("segment-card").count();
+
+  // edit: rename + set a stage filter
+  await card.getByText("Edit", { exact: true }).click();
+  await card.locator('input[name="name"]').fill("Renamed segment");
+  await card.locator('select[name="stage"]').selectOption("customer");
+  await card.getByRole("button", { name: "Save" }).click();
+  await page.waitForLoadState("networkidle");
+  await expect(page.getByText("Renamed segment")).toBeVisible();
+  await expect(page.getByText("stage: customer")).toBeVisible();
+
+  // delete: confirm inside <details>
+  const edited = page
+    .getByTestId("segment-card")
+    .filter({ hasText: "Renamed segment" });
+  await edited.getByText("Delete", { exact: true }).first().click();
+  await edited.getByRole("button", { name: "Delete" }).click();
+  await page.waitForLoadState("networkidle");
+  await expect(page.getByTestId("segment-card")).toHaveCount(initial - 1);
+});
+
+test("sign-in locks after repeated failures", async ({ browser }) => {
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  for (let i = 0; i < 6; i++) {
+    await page.goto("/en/login");
+    const signIn = page.locator("form").filter({ hasText: "Sign in" });
+    await signIn.getByPlaceholder("Email").fill("ghost@nowhere.io");
+    await signIn.getByPlaceholder("Password").fill("wrong");
+    await signIn.getByRole("button", { name: "Sign in", exact: true }).click();
+    await page.waitForURL("**/en/login**");
+  }
+  await expect(page.getByText("Too many failed attempts")).toBeVisible();
   await ctx.close();
 });

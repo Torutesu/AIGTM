@@ -16,6 +16,7 @@
     "agents": "Agents",
     "approvals": "Approvals",
     "audit": "Audit",
+    "settings": "Settings",
     "search": "Search or jump to",
     "menu": "Menu",
     "close": "Close",
@@ -29,6 +30,8 @@
     "name": "Name",
     "orgName": "Workspace name",
     "invalid": "Invalid email or password",
+    "errorInvalid": "Invalid email or password",
+    "errorLocked": "Too many failed attempts. Try again in a minute.",
     "haveAccount": "Sign in to an existing workspace",
     "needAccount": "Create a new workspace"
   },
@@ -142,7 +145,30 @@
     "empty": "No segments yet.",
     "emptyHint": "Group accounts by score, stage, or industry.",
     "members": "{count} accounts",
-    "noFilter": "No filters — matches every account"
+    "noFilter": "No filters — matches every account",
+    "edit": "Edit",
+    "save": "Save",
+    "delete": "Delete",
+    "deleteConfirm": "Delete this segment? Accounts are not affected."
+  },
+  "settings": {
+    "eyebrow": "Workspace / Settings",
+    "title": "Settings",
+    "memberCount": "{count} members",
+    "addMember": "Add member",
+    "email": "Email",
+    "name": "Name",
+    "namePlaceholder": "Teammate",
+    "password": "Password",
+    "role": "Role",
+    "add": "Add",
+    "empty": "No members found.",
+    "you": "you",
+    "save": "Save",
+    "remove": "Remove",
+    "removeConfirm": "Remove from workspace?",
+    "rolesNote": "Admins manage members and settings. Editors can run agents and approve. Viewers are read-only.",
+    "adminOnly": "Only admins can view workspace settings."
   },
   "account": {
     "eyebrow": "Records / Account",

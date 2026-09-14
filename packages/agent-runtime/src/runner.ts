@@ -88,7 +88,7 @@ export async function executeRun(
           if (step.kind === "tool") {
             const fn = tools[step.tool!];
             if (!fn) throw new Error(`tool not in allowlist: ${step.tool}`);
-            output = await fn(tx, ctx.orgId, step.input);
+            output = await fn(tx, ctx.orgId, resolveInput(step.input, context));
             latency = Date.now() - start;
           } else {
             const res = await router.complete(step, context);
@@ -265,6 +265,35 @@ export async function retryableAgentId(
     });
     return run.agentId;
   });
+}
+
+/**
+ * Interpolate `$`-refs in step input. `$event.x` and `$trigger.x` read the
+ * trigger context; `$steps.<stepId>.<field>` reads a prior step's output.
+ * Anything that doesn't resolve becomes undefined (tools decide requiredness).
+ */
+function resolveInput(
+  input: Record<string, unknown>,
+  context: Record<string, unknown>,
+): Record<string, unknown> {
+  const roots: Record<string, unknown> = {
+    event: context.trigger,
+    trigger: context.trigger,
+    steps: context.steps,
+  };
+  const resolve = (v: unknown): unknown => {
+    if (typeof v !== "string" || !v.startsWith("$")) return v;
+    const [root, ...path] = v.slice(1).split(".");
+    let cur: unknown = roots[root];
+    for (const p of path) {
+      if (cur == null || typeof cur !== "object") return undefined;
+      cur = (cur as Record<string, unknown>)[p];
+    }
+    return cur;
+  };
+  return Object.fromEntries(
+    Object.entries(input).map(([k, v]) => [k, resolve(v)]),
+  );
 }
 
 /**

@@ -5,18 +5,21 @@ import { signInAction, signUpAction } from "../../../lib/actions";
 
 export default async function LoginPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
   const { locale } = await params;
+  const { error } = await searchParams;
   setRequestLocale(locale);
-  return <LoginForm locale={locale} />;
+  return <LoginForm locale={locale} error={error} />;
 }
 
 const inputCls =
   "rounded-lg border border-line bg-card px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-faint focus:border-forest focus:outline-none focus:ring-2 focus:ring-mint";
 
-function LoginForm({ locale }: { locale: string }) {
+function LoginForm({ locale, error }: { locale: string; error?: string }) {
   const t = useTranslations("auth");
   const app = useTranslations("app");
   return (
@@ -35,6 +38,11 @@ function LoginForm({ locale }: { locale: string }) {
           <h2 className="mb-4 font-mono text-[11px] tracking-label text-ink-soft uppercase">
             {t("signIn")}
           </h2>
+          {error && (
+            <p className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">
+              {error === "locked" ? t("errorLocked") : t("errorInvalid")}
+            </p>
+          )}
           <form action={signInAction.bind(null, locale)} className="flex flex-col gap-3">
             <input name="email" type="email" required placeholder={t("email")} className={inputCls} />
             <input

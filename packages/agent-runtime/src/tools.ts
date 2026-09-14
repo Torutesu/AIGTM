@@ -27,6 +27,21 @@ export const tools: Record<string, ToolFn> = {
       .orderBy(desc(schema.deals.amount));
   },
 
+  "accounts.lookup": async (tx, orgId, input) => {
+    const [account] = await tx
+      .select()
+      .from(schema.accounts)
+      .where(
+        and(
+          eq(schema.accounts.orgId, orgId),
+          eq(schema.accounts.id, String(input.accountId)),
+        ),
+      )
+      .limit(1);
+    if (!account) throw new Error(`account not found: ${input.accountId}`);
+    return account;
+  },
+
   "accounts.search": async (tx, orgId, input) => {
     const limit = Number(input.limit ?? 50);
     return tx

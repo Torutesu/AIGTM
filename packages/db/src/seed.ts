@@ -45,13 +45,13 @@ const stalledDealRecoverySpec = {
 const outboundSpec = {
   name: "Outbound to high ICP fit",
   description: "Drafts a first-touch email when an account crosses the ICP-fit threshold.",
-  trigger: { type: "event", on: "signal_event", where: { score_gte: 0.8 } },
+  trigger: { type: "event", event: "signal_event", where: { score_gte: 0.8 } },
   steps: [
     {
       id: "research",
       kind: "tool",
       tool: "accounts.lookup",
-      input: { accountId: "$event.account_id" },
+      input: { accountId: "$event.accountId" },
       output: { account: "object" },
     },
     {
@@ -63,7 +63,7 @@ const outboundSpec = {
     },
   ],
   approval: { before_act: "required" },
-  act: [{ type: "send_email", channel: "email" }],
+  act: [{ type: "draft_email" }],
   learn: [{ write: { claim: "outcome", about: "account", from: "research" } }],
 };
 

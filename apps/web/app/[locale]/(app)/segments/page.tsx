@@ -6,7 +6,11 @@ import { schema, withOrg } from "@aigtm/db";
 import { Link } from "../../../../i18n/routing";
 import { ensureDb } from "../../../../lib/db";
 import { requireSession } from "../../../../lib/session";
-import { createSegmentAction } from "../../../../lib/actions";
+import {
+  createSegmentAction,
+  updateSegmentAction,
+  deleteSegmentAction,
+} from "../../../../lib/actions";
 import {
   PageHeader,
   Chip,
@@ -82,6 +86,65 @@ export default async function SegmentsPage({
   );
 }
 
+function FilterFields({
+  t,
+  seg,
+}: {
+  t: ReturnType<typeof useTranslations>;
+  seg?: SegmentRow;
+}) {
+  return (
+    <>
+      <label className="flex flex-col gap-1">
+        <span className="font-mono text-[10px] text-ink-faint">{t("name")}</span>
+        <input
+          name="name"
+          required
+          defaultValue={seg?.name}
+          placeholder={t("namePlaceholder")}
+          className="w-48 rounded-lg border border-line bg-paper px-3 py-2 text-[13px] text-ink outline-none placeholder:text-ink-faint focus:border-forest"
+        />
+      </label>
+      <label className="flex flex-col gap-1">
+        <span className="font-mono text-[10px] text-ink-faint">{t("minScore")}</span>
+        <input
+          name="minScore"
+          type="number"
+          min={0}
+          max={100}
+          defaultValue={seg?.filter.minScore ?? ""}
+          placeholder="0–100"
+          className="w-24 rounded-lg border border-line bg-paper px-3 py-2 text-[13px] text-ink outline-none placeholder:text-ink-faint focus:border-forest"
+        />
+      </label>
+      <label className="flex flex-col gap-1">
+        <span className="font-mono text-[10px] text-ink-faint">{t("stage")}</span>
+        <select
+          name="stage"
+          defaultValue={seg?.filter.stage ?? ""}
+          className="w-32 rounded-lg border border-line bg-paper px-2.5 py-2 text-[13px] text-ink outline-none focus:border-forest"
+        >
+          <option value="">{t("any")}</option>
+          {STAGES.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="flex flex-col gap-1">
+        <span className="font-mono text-[10px] text-ink-faint">{t("industry")}</span>
+        <input
+          name="industry"
+          defaultValue={seg?.filter.industry ?? ""}
+          placeholder={t("industryPlaceholder")}
+          className="w-36 rounded-lg border border-line bg-paper px-3 py-2 text-[13px] text-ink outline-none placeholder:text-ink-faint focus:border-forest"
+        />
+      </label>
+    </>
+  );
+}
+
 function SegmentsView({
   locale,
   segments,
@@ -111,48 +174,7 @@ function SegmentsView({
             action={createSegmentAction.bind(null, locale)}
             className="flex flex-wrap items-end gap-3"
           >
-            <label className="flex flex-col gap-1">
-              <span className="font-mono text-[10px] text-ink-faint">{t("name")}</span>
-              <input
-                name="name"
-                required
-                placeholder={t("namePlaceholder")}
-                className="w-48 rounded-lg border border-line bg-paper px-3 py-2 text-[13px] text-ink outline-none placeholder:text-ink-faint focus:border-forest"
-              />
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="font-mono text-[10px] text-ink-faint">{t("minScore")}</span>
-              <input
-                name="minScore"
-                type="number"
-                min={0}
-                max={100}
-                placeholder="0–100"
-                className="w-24 rounded-lg border border-line bg-paper px-3 py-2 text-[13px] text-ink outline-none placeholder:text-ink-faint focus:border-forest"
-              />
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="font-mono text-[10px] text-ink-faint">{t("stage")}</span>
-              <select
-                name="stage"
-                className="w-32 rounded-lg border border-line bg-paper px-2.5 py-2 text-[13px] text-ink outline-none focus:border-forest"
-              >
-                <option value="">{t("any")}</option>
-                {STAGES.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="font-mono text-[10px] text-ink-faint">{t("industry")}</span>
-              <input
-                name="industry"
-                placeholder={t("industryPlaceholder")}
-                className="w-36 rounded-lg border border-line bg-paper px-3 py-2 text-[13px] text-ink outline-none placeholder:text-ink-faint focus:border-forest"
-              />
-            </label>
+            <FilterFields t={t} />
             <button
               type="submit"
               className="rounded-lg bg-forest px-4 py-2 font-mono text-[11px] tracking-[0.06em] text-white uppercase hover:bg-forest-deep"
@@ -203,6 +225,48 @@ function SegmentsView({
                           +{members.length - 6}
                         </span>
                       ) : null}
+                    </div>
+                  ) : null}
+                  {canAct ? (
+                    <div className="mt-3 flex gap-2 border-t border-line-soft pt-3">
+                      <details className="group flex-1">
+                        <summary className="w-fit cursor-pointer list-none rounded-md border border-line px-2.5 py-1 font-mono text-[10.5px] tracking-[0.04em] text-ink-soft uppercase hover:border-ink-faint">
+                          {t("edit")}
+                        </summary>
+                        <form
+                          action={updateSegmentAction.bind(null, locale)}
+                          className="mt-3 flex flex-wrap items-end gap-3"
+                        >
+                          <input type="hidden" name="segmentId" value={s.id} />
+                          <FilterFields t={t} seg={s} />
+                          <button
+                            type="submit"
+                            className="rounded-lg bg-forest px-3.5 py-2 font-mono text-[11px] tracking-[0.06em] text-white uppercase hover:bg-forest-deep"
+                          >
+                            {t("save")}
+                          </button>
+                        </form>
+                      </details>
+                      <details className="group ml-auto">
+                        <summary className="cursor-pointer list-none rounded-md border border-line px-2.5 py-1 font-mono text-[10.5px] tracking-[0.04em] text-red-ink uppercase hover:border-red-ink/40">
+                          {t("delete")}
+                        </summary>
+                        <form
+                          action={deleteSegmentAction.bind(null, locale)}
+                          className="mt-2 flex items-center gap-2"
+                        >
+                          <input type="hidden" name="segmentId" value={s.id} />
+                          <span className="font-mono text-[10.5px] text-ink-faint">
+                            {t("deleteConfirm")}
+                          </span>
+                          <button
+                            type="submit"
+                            className="rounded-md bg-red-ink px-2.5 py-1 font-mono text-[10.5px] tracking-[0.04em] text-white uppercase"
+                          >
+                            {t("delete")}
+                          </button>
+                        </form>
+                      </details>
                     </div>
                   ) : null}
                 </Card>
