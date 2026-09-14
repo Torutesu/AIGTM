@@ -5,6 +5,8 @@
   },
   "nav": {
     "workspace": "ワークスペース",
+    "records": "レコード",
+    "accounts": "アカウント",
     "inbox": "インボックス",
     "agents": "エージェント",
     "approvals": "承認",
@@ -57,10 +59,30 @@
     "pending": "承認待ち",
     "decided": "決裁済み",
     "empty": "承認はまだありません。",
-    "totalCount": "全 {count} 件",
+    "totalCount": "{count} 件のレビュー待ち",
     "action": "アクション",
     "decision": "判定",
-    "time": "日時"
+    "time": "日時",
+    "other": "その他",
+    "rationale": "理由",
+    "draft": "ドラフト",
+    "decidedAt": "判定日時",
+    "approve": "承認",
+    "reject": "却下"
+  },
+  "accounts": {
+    "eyebrow": "Records / Accounts",
+    "title": "アカウント",
+    "totalCount": "{count} 件のアカウント",
+    "empty": "アカウントはまだありません。",
+    "account": "アカウント",
+    "score": "スコア",
+    "status": "ステータス",
+    "contacts": "コンタクト",
+    "signals": "シグナル",
+    "stageNew": "新規",
+    "stageOpportunity": "商談中",
+    "stageCustomer": "顧客"
   },
   "audit": {
     "eyebrow": "Governance / Audit",

@@ -27,7 +27,7 @@ export function PageHeader({
   );
 }
 
-type ChipTone = "live" | "neutral" | "pending" | "good" | "bad" | "info";
+export type ChipTone = "live" | "neutral" | "pending" | "good" | "bad" | "info";
 
 const chipTones: Record<ChipTone, string> = {
   live: "bg-mint text-mint-ink",
@@ -102,15 +102,22 @@ export function EmptyState({ label, hint }: { label: string; hint?: string }) {
   );
 }
 
-export function ScoreBar({ score }: { score: number | null | undefined }) {
-  const pct = Math.max(0, Math.min(100, Math.round((score ?? 0) * 100)));
+/** Segmented dash score — Lightfield-style glanceable meter. score: 0–1. */
+export function ScoreBar({ score }: { score: number | string | null | undefined }) {
+  const n = typeof score === "string" ? Number(score) : (score ?? 0);
+  const pct = Math.max(0, Math.min(100, Math.round(n <= 1 ? n * 100 : n)));
+  const filled = Math.round(pct / 100 * 6);
+  const tone =
+    pct >= 70 ? "bg-forest" : pct >= 40 ? "bg-amber-ink" : "bg-ink-faint";
   return (
     <span className="inline-flex items-center gap-2">
-      <span className="h-1 w-14 overflow-hidden rounded-full bg-paper-deep">
-        <span
-          className="block h-full rounded-full bg-forest"
-          style={{ width: `${pct}%` }}
-        />
+      <span className="flex items-center gap-[3px]">
+        {Array.from({ length: 6 }, (_, i) => (
+          <span
+            key={i}
+            className={`h-[3px] w-3.5 rounded-full ${i < filled ? tone : "bg-line"}`}
+          />
+        ))}
       </span>
       <span className="font-mono text-[11px] text-ink-soft tabular-nums">
         {pct}

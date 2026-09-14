@@ -5,6 +5,8 @@
   },
   "nav": {
     "workspace": "Workspace",
+    "records": "Records",
+    "accounts": "Accounts",
     "inbox": "Inbox",
     "agents": "Agents",
     "approvals": "Approvals",
@@ -57,10 +59,30 @@
     "pending": "Pending",
     "decided": "Decided",
     "empty": "No approvals yet.",
-    "totalCount": "{count} total",
+    "totalCount": "{count} awaiting review",
     "action": "Action",
     "decision": "Decision",
-    "time": "Time"
+    "time": "Time",
+    "other": "Other",
+    "rationale": "Why now",
+    "draft": "Draft artifact",
+    "decidedAt": "Decided",
+    "approve": "Approve",
+    "reject": "Dismiss"
+  },
+  "accounts": {
+    "eyebrow": "Records / Accounts",
+    "title": "Accounts",
+    "totalCount": "{count} accounts",
+    "empty": "No accounts yet.",
+    "account": "Account",
+    "score": "Score",
+    "status": "Status",
+    "contacts": "Contacts",
+    "signals": "Signals",
+    "stageNew": "New",
+    "stageOpportunity": "Opportunity",
+    "stageCustomer": "Customer"
   },
   "audit": {
     "eyebrow": "Governance / Audit",

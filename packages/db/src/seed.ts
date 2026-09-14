@@ -85,18 +85,27 @@ export async function seed(handle: Awaited<ReturnType<typeof createDb>>) {
     .values({ orgId: org.id, userId: user.id, role: "admin" });
 
   await withOrg(handle, { orgId: org.id, userId: user.id, actorType: "system" }, async (tx) => {
-    const [acme, globex, sakura] = await tx
+    const [acme, globex, sakura, nordic, hummingbird, tsubame, cascade] = await tx
       .insert(schema.accounts)
       .values([
         { orgId: org.id, name: "Acme Robotics", domain: "acme-robotics.example", industry: "robotics", employeeCount: 210, icpFitScore: "82", stage: "prospect" },
         { orgId: org.id, name: "GlobeX", domain: "globex.example", industry: "logistics", employeeCount: 1200, icpFitScore: "55", stage: "customer" },
         { orgId: org.id, name: "さくら産業", domain: "sakura-sangyo.example", industry: "manufacturing", employeeCount: 480, icpFitScore: "71", stage: "prospect" },
+        { orgId: org.id, name: "Nordic Systems", domain: "nordic-systems.example", industry: "devtools", employeeCount: 340, icpFitScore: "96", stage: "prospect" },
+        { orgId: org.id, name: "Hummingbird Labs", domain: "hummingbird.example", industry: "ai", employeeCount: 90, icpFitScore: "88", stage: "opportunity" },
+        { orgId: org.id, name: "株式会社つばめ", domain: "tsubame.example", industry: "fintech", employeeCount: 150, icpFitScore: "64", stage: "prospect" },
+        { orgId: org.id, name: "Cascade AI", domain: "cascade-ai.example", industry: "ai", employeeCount: 45, icpFitScore: "45", stage: "prospect" },
+        { orgId: org.id, name: "Polar Bear Energy", domain: "polarbear.example", industry: "energy", employeeCount: 800, icpFitScore: "33", stage: "prospect" },
       ])
       .returning();
 
     await tx.insert(schema.people).values([
       { orgId: org.id, accountId: acme.id, name: "Rin Sato", email: "rin@acme-robotics.example", role: "Head of Sales" },
       { orgId: org.id, accountId: globex.id, name: "Mark Chen", email: "mark@globex.example", role: "VP Revenue" },
+      { orgId: org.id, accountId: nordic.id, name: "Elena Marlow", email: "elena@nordic-systems.example", role: "VP Sales" },
+      { orgId: org.id, accountId: nordic.id, name: "Jonas Berg", email: "jonas@nordic-systems.example", role: "RevOps Lead" },
+      { orgId: org.id, accountId: hummingbird.id, name: "Priya Shah", email: "priya@hummingbird.example", role: "Head of Growth" },
+      { orgId: org.id, accountId: tsubame.id, name: "田中 翼", email: "tanaka@tsubame.example", role: "営業本部長" },
     ]);
 
     const [stalledDeal] = await tx
@@ -135,9 +144,14 @@ export async function seed(handle: Awaited<ReturnType<typeof createDb>>) {
       },
     ]);
 
-    const [sig] = await tx
+    const [sig, execSig, fundingSig, headcountSig] = await tx
       .insert(schema.signals)
-      .values({ orgId: org.id, name: "First GTM hire", spec: jobPostingSignalSpec })
+      .values([
+        { orgId: org.id, name: "First GTM hire", spec: jobPostingSignalSpec },
+        { orgId: org.id, name: "Executive hire", spec: jobPostingSignalSpec },
+        { orgId: org.id, name: "New funding round", spec: jobPostingSignalSpec },
+        { orgId: org.id, name: "Headcount growth", spec: jobPostingSignalSpec },
+      ])
       .returning();
 
     await tx.insert(schema.signalEvents).values([
@@ -158,6 +172,41 @@ export async function seed(handle: Awaited<ReturnType<typeof createDb>>) {
         accountId: acme.id,
         evidence: { source: "job_boards", url: "https://example.com/jobs/acme-revops", excerpt: "First RevOps lead" },
         score: "0.82",
+      },
+      {
+        orgId: org.id,
+        signalId: execSig.id,
+        accountId: nordic.id,
+        evidence: { source: "linkedin", url: "https://example.com/nordic-vp", excerpt: "New VP of Revenue Operations, ex-unicorn" },
+        score: "0.96",
+      },
+      {
+        orgId: org.id,
+        signalId: fundingSig.id,
+        accountId: nordic.id,
+        evidence: { source: "news", url: "https://example.com/nordic-b", excerpt: "Series B $40M" },
+        score: "0.9",
+      },
+      {
+        orgId: org.id,
+        signalId: headcountSig.id,
+        accountId: hummingbird.id,
+        evidence: { source: "job_boards", url: "https://example.com/hb-jobs", excerpt: "+18% headcount in 90 days, 6 GTM roles open" },
+        score: "0.88",
+      },
+      {
+        orgId: org.id,
+        signalId: execSig.id,
+        accountId: tsubame.id,
+        evidence: { source: "job_boards", url: "https://example.com/tsubame-vp", excerpt: "営業企画部長を新規公募" },
+        score: "0.64",
+      },
+      {
+        orgId: org.id,
+        signalId: fundingSig.id,
+        accountId: cascade.id,
+        evidence: { source: "news", url: "https://example.com/cascade-seed", excerpt: "Seed $6M" },
+        score: "0.45",
       },
     ]);
 
@@ -216,6 +265,50 @@ export async function seed(handle: Awaited<ReturnType<typeof createDb>>) {
       entityType: "approval",
       entityId: ap.id,
       detail: { note: "demo seed" },
+    });
+
+    // A second pending approval carrying a full email draft, so the
+    // for-review pane can render the artifact a human is approving.
+    const [ob2] = await tx
+      .insert(schema.outbox)
+      .values({
+        orgId: org.id,
+        runId: run.id,
+        kind: "draft_email",
+        payload: {
+          action: "send_email",
+          from: "admin@aigtm.local",
+          to: "Elena Marlow · elena@nordic-systems.example",
+          subject: "Nordic Systems の GTM 体制立ち上げについて",
+          body: "Elena さま\n\nVP of Revenue Operations の着任と Series B 調達、拝見しました。立ち上げ期の GTM 体制づくりを支援しています。\n\n来週 20 分ほどお時間をいただけますか？\n\nAdmin",
+          mock: true,
+        },
+        status: "pending_approval",
+      })
+      .returning();
+    const [ap2] = await tx
+      .insert(schema.approvals)
+      .values({
+        orgId: org.id,
+        runId: run.id,
+        outboxId: ob2.id,
+        kind: "review_action",
+        payload: {
+          agent: "Outbound to high ICP fit",
+          action: "send_email",
+          preview: {
+            research: { account: "Nordic Systems", score: 96 },
+            draft: { note_draft: "email ready for review" },
+          },
+        },
+        status: "pending",
+      })
+      .returning();
+    await audit(tx, { orgId: org.id, actorType: "system" }, {
+      action: "seed.created",
+      entityType: "approval",
+      entityId: ap2.id,
+      detail: { note: "demo seed: draft email" },
     });
   });
 

@@ -47,9 +47,6 @@ function Shell({
         </div>
 
         <div className="flex-1 overflow-y-auto px-3 py-5">
-          <p className="mb-2 px-3 font-mono text-[10px] tracking-label text-ink-faint uppercase">
-            {t("workspace")}
-          </p>
           <SideNav />
         </div>
 
