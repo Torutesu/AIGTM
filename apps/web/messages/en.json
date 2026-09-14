@@ -1,0 +1,78 @@
+{
+  "app": {
+    "title": "AIGTM",
+    "tagline": "AI agents for GTM"
+  },
+  "nav": {
+    "workspace": "Workspace",
+    "inbox": "Inbox",
+    "agents": "Agents",
+    "approvals": "Approvals",
+    "audit": "Audit",
+    "signOut": "Sign out"
+  },
+  "auth": {
+    "signIn": "Sign in",
+    "signUp": "Create workspace",
+    "email": "Email",
+    "password": "Password",
+    "name": "Name",
+    "orgName": "Workspace name",
+    "invalid": "Invalid email or password",
+    "haveAccount": "Sign in to an existing workspace",
+    "needAccount": "Create a new workspace"
+  },
+  "inbox": {
+    "eyebrow": "Inbox / Triage",
+    "title": "What needs you now",
+    "pendingApprovals": "Pending approvals",
+    "recentSignals": "Recent signals",
+    "pendingCount": "{count} awaiting review",
+    "empty": "Nothing needs your attention.",
+    "noSignals": "No signals yet.",
+    "review": "Review",
+    "approve": "Approve",
+    "reject": "Reject",
+    "score": "score"
+  },
+  "agents": {
+    "eyebrow": "Agents / Library",
+    "title": "Agents",
+    "run": "Run now",
+    "live": "Live",
+    "liveCount": "{count} live",
+    "trigger": "trigger",
+    "steps": "steps",
+    "empty": "No agents deployed yet.",
+    "runs": "Recent runs",
+    "noRuns": "No runs yet.",
+    "status": "Status",
+    "started": "Started",
+    "detail": "Agent detail",
+    "ran": "Run started"
+  },
+  "approvals": {
+    "eyebrow": "Governance / Approvals",
+    "title": "Approvals",
+    "pending": "Pending",
+    "decided": "Decided",
+    "empty": "No approvals yet.",
+    "totalCount": "{count} total",
+    "action": "Action",
+    "decision": "Decision",
+    "time": "Time"
+  },
+  "audit": {
+    "eyebrow": "Governance / Audit",
+    "title": "Audit log",
+    "empty": "No audit events yet.",
+    "totalCount": "{count} events",
+    "action": "Action",
+    "entity": "Entity",
+    "actor": "Actor",
+    "time": "Time"
+  },
+  "common": {
+    "locale": "Language"
+  }
+}

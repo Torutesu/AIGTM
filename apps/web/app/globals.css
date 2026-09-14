@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+@theme {
+  --color-paper: #f7f6f5;
+  --color-paper-deep: #efedeb;
+  --color-ink: #474445;
+  --color-ink-soft: #6e6b6c;
+  --color-ink-faint: #9b9899;
+  --color-forest: #004225;
+  --color-forest-deep: #002f1a;
+  --color-mint: #e2efe7;
+  --color-mint-ink: #1d5c3c;
+  --color-line: #e3e1de;
+  --color-line-soft: #ebe9e6;
+  --color-card: #ffffff;
+  --color-amber-soft: #f5ead3;
+  --color-amber-ink: #8a6116;
+  --color-red-soft: #f6e3e0;
+  --color-red-ink: #a03a30;
+  --color-sky-soft: #e2ebf2;
+  --color-sky-ink: #3a5f7d;
+
+  --font-sans: var(--font-instrument), "Hiragino Kaku Gothic ProN",
+    "Noto Sans JP", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-robotomono), "SFMono-Regular", ui-monospace,
+    "Menlo", monospace;
+
+  --shadow-card: 0 1px 2px rgb(26 26 24 / 0.04), 0 10px 28px rgb(26 26 24 / 0.06);
+  --shadow-raised: 0 2px 4px rgb(26 26 24 / 0.05), 0 18px 40px rgb(26 26 24 / 0.1);
+
+  --tracking-label: 0.12em;
+}
+
+body {
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+}
+
+/* Barcode-striped display type — echoes the Frontrunner wordmark language. */
+.wordmark {
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--color-forest) 0 2.5px,
+    transparent 2.5px 5px
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  letter-spacing: 0.02em;
+}
+
+/* Crop marks: + at each corner of a framed element (CTA / section label). */
+.crop-marks {
+  position: relative;
+}
+.crop-marks::before,
+.crop-marks::after,
+.crop-marks > .cm::before,
+.crop-marks > .cm::after {
+  position: absolute;
+  color: var(--color-ink-faint);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1;
+}
+.crop-marks::before {
+  content: "+";
+  top: -5px;
+  left: -8px;
+}
+.crop-marks::after {
+  content: "+";
+  top: -5px;
+  right: -8px;
+}
+.crop-marks > .cm::before {
+  content: "+";
+  bottom: -5px;
+  left: -8px;
+}
+.crop-marks > .cm::after {
+  content: "+";
+  bottom: -5px;
+  right: -8px;
+}
+
+::selection {
+  background: var(--color-mint);
+  color: var(--color-forest-deep);
+}

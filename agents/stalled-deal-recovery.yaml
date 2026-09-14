@@ -1,0 +1,36 @@
+name: Stalled Deal Recovery
+description: Flags deals with no activity in 14+ days, diagnoses the stall reason from conversations, and drafts a recovery note for the owner.
+trigger:
+  type: schedule
+  schedule: "0 9 * * MON"
+steps:
+  - id: find_stalled
+    kind: tool
+    tool: deals.stalled
+    input:
+      days: 14
+    output:
+      deals: array
+  - id: diagnose
+    kind: llm
+    model: reasoning
+    prompt: prompts/diagnose-stall.md
+    output:
+      stall_reason: string
+      evidence: array
+  - id: draft
+    kind: llm
+    model: writing
+    prompt: prompts/recovery-note.md
+    output:
+      note_draft: string
+approval:
+  before_act: required
+act:
+  - type: create_task
+    assignee: deal.owner
+learn:
+  - write:
+      claim: stall_reason
+      about: deal
+      from: find_stalled

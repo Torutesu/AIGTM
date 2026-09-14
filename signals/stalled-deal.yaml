@@ -1,0 +1,16 @@
+name: Stalled deal
+description: Open deal with no recorded activity for 14+ days.
+sources:
+  - type: internal_sor
+    watch:
+      entity: deal
+      field: last_activity_at
+      older_than_days: 14
+resolve:
+  entity: account
+  constraints: []
+score:
+  icp_filter: none
+actions:
+  - emit: signal_event
+  - enqueue_agent: stalled-deal-recovery

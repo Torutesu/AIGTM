@@ -1,0 +1,30 @@
+{
+  "name": "@aigtm/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema.ts",
+    "./seed": "./src/seed.ts",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "generate": "drizzle-kit generate",
+    "seed": "tsx src/seed.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --max-warnings 0"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.3.4",
+    "drizzle-orm": "^0.44.2",
+    "pg": "^8.16.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.1",
+    "typescript": "^5.8.3",
+    "tsx": "^4.20.3",
+    "@types/pg": "^8.15.0"
+  }
+}

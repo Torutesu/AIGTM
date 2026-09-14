@@ -1,0 +1,86 @@
+import { useTranslations } from "next-intl";
+import { setRequestLocale } from "next-intl/server";
+import { ArrowUpIcon } from "../(app)/_components/icons";
+import { signInAction, signUpAction } from "../../../lib/actions";
+
+export default async function LoginPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  setRequestLocale(locale);
+  return <LoginForm locale={locale} />;
+}
+
+const inputCls =
+  "rounded-lg border border-line bg-card px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-faint focus:border-forest focus:outline-none focus:ring-2 focus:ring-mint";
+
+function LoginForm({ locale }: { locale: string }) {
+  const t = useTranslations("auth");
+  const app = useTranslations("app");
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-center px-6 py-16">
+      <div className="w-full max-w-sm">
+        <div className="mb-10 text-center">
+          <p className="font-mono text-[11px] tracking-label text-ink-faint uppercase">
+            {app("tagline")}
+          </p>
+          <h1 className="wordmark mt-3 text-[52px] leading-none font-bold">
+            {app("title")}
+          </h1>
+        </div>
+
+        <section className="rounded-xl border border-line bg-card p-6 shadow-card">
+          <h2 className="mb-4 font-mono text-[11px] tracking-label text-ink-soft uppercase">
+            {t("signIn")}
+          </h2>
+          <form action={signInAction.bind(null, locale)} className="flex flex-col gap-3">
+            <input name="email" type="email" required placeholder={t("email")} className={inputCls} />
+            <input
+              name="password"
+              type="password"
+              required
+              placeholder={t("password")}
+              className={inputCls}
+            />
+            <div className="crop-marks mt-1">
+              <span className="cm" aria-hidden />
+              <button
+                type="submit"
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-forest px-4 py-2.5 font-mono text-[12px] tracking-[0.08em] text-white uppercase transition-colors hover:bg-forest-deep"
+              >
+                {t("signIn")}
+                <ArrowUpIcon size={13} strokeWidth={2.2} />
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <section className="mt-4 rounded-xl border border-dashed border-line bg-card/60 p-6">
+          <h2 className="mb-4 font-mono text-[11px] tracking-label text-ink-faint uppercase">
+            {t("signUp")}
+          </h2>
+          <form action={signUpAction.bind(null, locale)} className="flex flex-col gap-3">
+            <input name="orgName" required placeholder={t("orgName")} className={inputCls} />
+            <input name="name" required placeholder={t("name")} className={inputCls} />
+            <input name="email" type="email" required placeholder={t("email")} className={inputCls} />
+            <input
+              name="password"
+              type="password"
+              required
+              placeholder={t("password")}
+              className={inputCls}
+            />
+            <button
+              type="submit"
+              className="mt-1 rounded-lg border border-forest px-4 py-2.5 font-mono text-[12px] tracking-[0.08em] text-forest uppercase transition-colors hover:bg-mint"
+            >
+              {t("signUp")}
+            </button>
+          </form>
+        </section>
+      </div>
+    </main>
+  );
+}

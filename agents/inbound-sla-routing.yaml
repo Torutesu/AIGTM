@@ -1,0 +1,37 @@
+name: Inbound SLA Routing
+description: Grades new inbound leads against ICP within a minute and routes to the owner or nurture with the reason.
+trigger:
+  type: event
+  event: inbound.submitted
+steps:
+  - id: load_context
+    kind: tool
+    tool: accounts.search
+    input:
+      limit: 50
+    output:
+      accounts: array
+  - id: grade
+    kind: llm
+    model: fast
+    prompt: prompts/grade-icp.md
+    output:
+      icp_fit: number
+      disposition: string
+  - id: route
+    kind: llm
+    model: reasoning
+    prompt: prompts/route-owner.md
+    output:
+      owner: string
+      reason: string
+approval:
+  before_act: required
+act:
+  - type: create_task
+    assignee: routed.owner
+learn:
+  - write:
+      claim: disposition
+      about: account
+      from: load_context

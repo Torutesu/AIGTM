@@ -1,0 +1,29 @@
+name: Weekly Pipeline Digest
+description: Summarizes open deals, new signals, and stalled items; posts a digest for the team (approval-gated in Phase 0).
+trigger:
+  type: schedule
+  schedule: "0 8 * * FRI"
+steps:
+  - id: deals
+    kind: tool
+    tool: deals.stalled
+    input:
+      days: 14
+    output:
+      stalled: array
+  - id: signals
+    kind: tool
+    tool: signal_events.recent
+    output:
+      events: array
+  - id: summarize
+    kind: llm
+    model: writing
+    prompt: prompts/weekly-digest.md
+    output:
+      digest: string
+approval:
+  before_act: required
+act:
+  - type: post_slack
+learn: []

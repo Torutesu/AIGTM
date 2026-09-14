@@ -1,0 +1,14 @@
+# Optional: real Postgres for development. Phase 0 default is PGlite (no docker needed).
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: aigtm
+      POSTGRES_PASSWORD: aigtm
+      POSTGRES_DB: aigtm
+    ports:
+      - "54329:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+volumes:
+  pgdata:

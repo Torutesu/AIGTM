@@ -1,0 +1,110 @@
+import type { ReactNode, SVGProps } from "react";
+
+function IconBase({
+  children,
+  size = 16,
+  strokeWidth = 1.8,
+  className,
+  ...rest
+}: {
+  children: ReactNode;
+  size?: number;
+  strokeWidth?: number;
+} & SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      className={className}
+      {...rest}
+    >
+      {children}
+    </svg>
+  );
+}
+
+type P = { size?: number; strokeWidth?: number; className?: string };
+
+export const InboxIcon = (p: P) => (
+  <IconBase {...p}>
+    <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
+    <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+  </IconBase>
+);
+
+export const BotIcon = (p: P) => (
+  <IconBase {...p}>
+    <path d="M12 8V4H8" />
+    <rect width="16" height="12" x="4" y="8" rx="2" />
+    <path d="M2 14h2" />
+    <path d="M20 14h2" />
+    <path d="M15 13v2" />
+    <path d="M9 13v2" />
+  </IconBase>
+);
+
+export const ShieldCheckIcon = (p: P) => (
+  <IconBase {...p}>
+    <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
+    <path d="m9 12 2 2 4-4" />
+  </IconBase>
+);
+
+export const FileTextIcon = (p: P) => (
+  <IconBase {...p}>
+    <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+    <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+    <path d="M10 9H8" />
+    <path d="M16 13H8" />
+    <path d="M16 17H8" />
+  </IconBase>
+);
+
+export const GlobeIcon = (p: P) => (
+  <IconBase {...p}>
+    <circle cx="12" cy="12" r="10" />
+    <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+    <path d="M2 12h20" />
+  </IconBase>
+);
+
+export const LogOutIcon = (p: P) => (
+  <IconBase {...p}>
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+    <polyline points="16 17 21 12 16 7" />
+    <line x1="21" x2="9" y1="12" y2="12" />
+  </IconBase>
+);
+
+export const CheckIcon = (p: P) => (
+  <IconBase {...p}>
+    <polyline points="20 6 9 17 4 12" />
+  </IconBase>
+);
+
+export const XIcon = (p: P) => (
+  <IconBase {...p}>
+    <path d="M18 6 6 18" />
+    <path d="m6 6 12 12" />
+  </IconBase>
+);
+
+export const PlayIcon = (p: P) => (
+  <IconBase {...p}>
+    <polygon points="6 3 20 12 6 21 6 3" fill="currentColor" stroke="none" />
+  </IconBase>
+);
+
+export const ArrowUpIcon = (p: P) => (
+  <IconBase {...p}>
+    <path d="m5 12 7-7 7 7" />
+    <path d="M12 19V5" />
+  </IconBase>
+);

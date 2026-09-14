@@ -1,0 +1,15 @@
+name: First GTM hire
+description: Company with no prior GTM headcount posts its first GTM/growth/RevOps role.
+sources:
+  - type: job_boards
+    watch:
+      role_keywords: [GTM, growth, RevOps, グロース, 営業企画]
+resolve:
+  entity: account
+  constraints:
+    - no prior GTM headcount
+score:
+  icp_filter: default
+actions:
+  - emit: signal_event
+  - enqueue_agent: account-research

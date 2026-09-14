@@ -1,0 +1,78 @@
+{
+  "app": {
+    "title": "AIGTM",
+    "tagline": "GTM のための AI エージェント"
+  },
+  "nav": {
+    "workspace": "ワークスペース",
+    "inbox": "インボックス",
+    "agents": "エージェント",
+    "approvals": "承認",
+    "audit": "監査ログ",
+    "signOut": "サインアウト"
+  },
+  "auth": {
+    "signIn": "サインイン",
+    "signUp": "ワークスペースを作成",
+    "email": "メールアドレス",
+    "password": "パスワード",
+    "name": "名前",
+    "orgName": "ワークスペース名",
+    "invalid": "メールアドレスまたはパスワードが正しくありません",
+    "haveAccount": "既存ワークスペースにサインイン",
+    "needAccount": "新しいワークスペースを作成"
+  },
+  "inbox": {
+    "eyebrow": "Inbox / Triage",
+    "title": "今対応が必要なもの",
+    "pendingApprovals": "承認待ち",
+    "recentSignals": "新着シグナル",
+    "pendingCount": "{count} 件の承認待ち",
+    "empty": "対応が必要なものはありません。",
+    "noSignals": "シグナルはまだありません。",
+    "review": "要レビュー",
+    "approve": "承認",
+    "reject": "却下",
+    "score": "スコア"
+  },
+  "agents": {
+    "eyebrow": "Agents / Library",
+    "title": "エージェント",
+    "run": "今すぐ実行",
+    "live": "稼働中",
+    "liveCount": "{count} 件稼働中",
+    "trigger": "トリガー",
+    "steps": "ステップ",
+    "empty": "デプロイ済みのエージェントはまだありません。",
+    "runs": "最近の実行",
+    "noRuns": "実行履歴はまだありません。",
+    "status": "ステータス",
+    "started": "開始",
+    "detail": "エージェント詳細",
+    "ran": "実行を開始しました"
+  },
+  "approvals": {
+    "eyebrow": "Governance / Approvals",
+    "title": "承認",
+    "pending": "承認待ち",
+    "decided": "決裁済み",
+    "empty": "承認はまだありません。",
+    "totalCount": "全 {count} 件",
+    "action": "アクション",
+    "decision": "判定",
+    "time": "日時"
+  },
+  "audit": {
+    "eyebrow": "Governance / Audit",
+    "title": "監査ログ",
+    "empty": "監査イベントはまだありません。",
+    "totalCount": "{count} 件のイベント",
+    "action": "アクション",
+    "entity": "対象",
+    "actor": "実行者",
+    "time": "日時"
+  },
+  "common": {
+    "locale": "言語"
+  }
+}

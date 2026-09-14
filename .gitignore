@@ -1,0 +1,12 @@
+node_modules/
+.next/
+dist/
+.turbo/
+.pglite/
+.pglite-*/
+*.log
+.DS_Store
+.env
+.env.local
+playwright-report/
+test-results/
