@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 import { useRouter } from "../../../../i18n/routing";
 import { SearchIcon } from "./icons";
@@ -19,7 +20,22 @@ interface SearchResponse {
   agents: { id: string; name: string }[];
 }
 
-export function CommandPalette() {
+/** Wrap the first case-insensitive match of `q` in <mark>. */
+function Highlight({ text, q }: { text: string; q: string }) {
+  const i = q ? text.toLowerCase().indexOf(q.toLowerCase()) : -1;
+  if (i < 0) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, i)}
+      <mark className="rounded-[3px] bg-mint px-px text-forest-deep">
+        {text.slice(i, i + q.length)}
+      </mark>
+      {text.slice(i + q.length)}
+    </>
+  );
+}
+
+export function CommandPalette({ role }: { role?: string }) {
   const t = useTranslations("palette");
   const nav = useTranslations("nav");
   const router = useRouter();
@@ -27,6 +43,7 @@ export function CommandPalette() {
   const [query, setQuery] = useState("");
   const [index, setIndex] = useState(0);
   const [remote, setRemote] = useState<ResultItem[]>([]);
+  const [searching, setSearching] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -42,8 +59,11 @@ export function CommandPalette() {
         { key: "segments", href: "/segments" },
         { key: "signals", href: "/signals" },
         { key: "audit", href: "/audit" },
+        ...(role === "admin"
+          ? [{ key: "settings", href: "/settings" }]
+          : []),
       ].map((i) => ({ ...i, label: nav(i.key) })),
-    [nav],
+    [nav, role],
   );
 
   const q = query.trim().toLowerCase();
@@ -59,8 +79,10 @@ export function CommandPalette() {
   useEffect(() => {
     if (!q) {
       setRemote([]);
+      setSearching(false);
       return;
     }
+    setSearching(true);
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(async () => {
       try {
@@ -96,6 +118,8 @@ export function CommandPalette() {
         setRemote(out);
       } catch {
         // network hiccup — keep page results only
+      } finally {
+        setSearching(false);
       }
     }, 180);
     return () => {
@@ -129,30 +153,56 @@ export function CommandPalette() {
     router.push(href);
   };
 
+  const renderItem = (item: ResultItem, i: number) => (
+    <li key={item.key}>
+      <button
+        type="button"
+        onClick={() => go(item.href)}
+        onMouseEnter={() => setIndex(i)}
+        className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left text-[13.5px] transition-colors ${
+          i === index ? "bg-paper-deep text-forest-deep" : "text-ink-soft"
+        }`}
+      >
+        <span className="truncate">
+          <Highlight text={item.label} q={q} />
+        </span>
+        <span className="shrink-0 font-mono text-[10px] text-ink-faint">
+          {item.hint ?? item.href}
+        </span>
+      </button>
+    </li>
+  );
+
   return (
     <>
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex w-full items-center gap-2 rounded-lg border border-line bg-card px-3 py-2 text-left text-[12.5px] text-ink-faint hover:border-ink-faint/40"
+        className="flex w-full items-center gap-2 rounded-lg border border-line bg-card px-3 py-2 text-left text-[12.5px] text-ink-faint transition-colors hover:border-ink-faint/40 hover:text-ink-soft"
       >
         <SearchIcon size={13} strokeWidth={1.8} />
         <span className="flex-1">{nav("search")}</span>
-        <kbd className="rounded border border-line px-1 font-mono text-[9.5px] text-ink-faint">
-          ⌘K
-        </kbd>
+        <kbd className="kbd">⌘K</kbd>
       </button>
-      {open ? (
-        <div
-          className="fixed inset-0 z-50 flex items-start justify-center bg-ink/20 px-4 pt-[18vh] backdrop-blur-[2px]"
-          onClick={() => setOpen(false)}
-        >
+      {open
+        ? createPortal(
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label={nav("search")}
+              className="fixed inset-0 z-50 flex items-start justify-center bg-ink/20 px-4 pt-[18vh] backdrop-blur-[2px]"
+              onClick={() => setOpen(false)}
+            >
           <div
-            className="w-full max-w-md overflow-hidden rounded-xl border border-line bg-card shadow-raised"
+            className="animate-toast-in w-full max-w-md overflow-hidden rounded-xl border border-line bg-card shadow-raised"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-3 border-b border-line px-4">
-              <SearchIcon size={13} strokeWidth={1.8} className="text-ink-faint" />
+              {searching ? (
+                <span className="spinner text-ink-faint" aria-hidden />
+              ) : (
+                <SearchIcon size={13} strokeWidth={1.8} className="text-ink-faint" />
+              )}
               <input
                 ref={inputRef}
                 value={query}
@@ -177,33 +227,52 @@ export function CommandPalette() {
                 className="w-full bg-transparent py-3.5 text-[14px] text-ink outline-none placeholder:text-ink-faint"
               />
             </div>
-            <ul className="max-h-72 overflow-y-auto p-2">
-              {items.map((item, i) => (
-                <li key={item.key}>
-                  <button
-                    type="button"
-                    onClick={() => go(item.href)}
-                    onMouseEnter={() => setIndex(i)}
-                    className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left text-[13.5px] ${
-                      i === index ? "bg-paper-deep text-forest-deep" : "text-ink-soft"
-                    }`}
-                  >
-                    <span className="truncate">{item.label}</span>
-                    <span className="shrink-0 font-mono text-[10px] text-ink-faint">
-                      {item.hint ?? item.href}
-                    </span>
-                  </button>
-                </li>
-              ))}
-              {items.length === 0 ? (
-                <li className="px-3 py-6 text-center font-mono text-[11px] text-ink-faint">
-                  {t("empty")}
-                </li>
+            <div className="max-h-80 overflow-y-auto p-2">
+              {pageItems.length > 0 ? (
+                <>
+                  <p className="px-3 pt-1.5 pb-1 font-mono text-[9.5px] tracking-label text-ink-faint uppercase">
+                    {t("pages")}
+                  </p>
+                  <ul>{pageItems.map(renderItem)}</ul>
+                </>
               ) : null}
-            </ul>
+              {remote.length > 0 ? (
+                <>
+                  <p className="px-3 pt-2.5 pb-1 font-mono text-[9.5px] tracking-label text-ink-faint uppercase">
+                    {t("results")}
+                  </p>
+                  <ul>
+                    {remote.map((item, j) =>
+                      renderItem(item, pageItems.length + j),
+                    )}
+                  </ul>
+                </>
+              ) : null}
+              {items.length === 0 ? (
+                <p className="px-3 py-6 text-center font-mono text-[11px] text-ink-faint">
+                  {searching ? t("searching") : t("empty")}
+                </p>
+              ) : null}
+            </div>
+            <div className="flex items-center gap-4 border-t border-line-soft px-4 py-2.5">
+              <span className="flex items-center gap-1.5 font-mono text-[10px] text-ink-faint">
+                <kbd className="kbd">↑↓</kbd>
+                {t("navigate")}
+              </span>
+              <span className="flex items-center gap-1.5 font-mono text-[10px] text-ink-faint">
+                <kbd className="kbd">↵</kbd>
+                {t("open")}
+              </span>
+              <span className="flex items-center gap-1.5 font-mono text-[10px] text-ink-faint">
+                <kbd className="kbd">esc</kbd>
+                {t("close")}
+              </span>
+            </div>
           </div>
-        </div>
-      ) : null}
+            </div>,
+            document.body,
+          )
+        : null}
     </>
   );
 }

@@ -97,7 +97,8 @@
     "filterPending": "Pending",
     "filterApproved": "Approved",
     "filterRejected": "Dismissed",
-    "viewOnly": "View only — your role can't decide approvals."
+    "viewOnly": "View only — your role can't decide approvals.",
+    "navHint": "to move through the queue"
   },
   "accounts": {
     "eyebrow": "Records / Accounts",
@@ -127,7 +128,13 @@
     "accounts": "Account",
     "contacts": "Contact",
     "deals": "Opportunity",
-    "agents": "Agent"
+    "agents": "Agent",
+    "pages": "Pages",
+    "results": "Records",
+    "navigate": "navigate",
+    "open": "open",
+    "close": "close",
+    "searching": "Searching…"
   },
   "segments": {
     "eyebrow": "Records / Segments",
@@ -198,7 +205,11 @@
     "eyebrow": "Agents / Run",
     "steps": "Steps",
     "retry": "Retry",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "statSteps": "Steps",
+    "statLatency": "Compute",
+    "statTokens": "Tokens in/out",
+    "statDuration": "Duration"
   },
   "deals": {
     "eyebrow": "Records / Opportunities",
@@ -255,5 +266,20 @@
     "title": "Page not found",
     "body": "This record doesn't exist or you don't have access to it.",
     "back": "Back to inbox"
+  },
+  "toast": {
+    "approved": "Approval dispatched",
+    "dismissed": "Approval dismissed",
+    "runStarted": "Run started",
+    "retried": "Run queued for retry",
+    "cancelled": "Run cancelled",
+    "segmentCreated": "Segment created",
+    "segmentUpdated": "Segment updated",
+    "segmentDeleted": "Segment deleted",
+    "memberAdded": "Member added",
+    "memberRemoved": "Member removed",
+    "roleChanged": "Role updated",
+    "signedIn": "Signed in",
+    "dismiss": "Dismiss notification"
   }
 }

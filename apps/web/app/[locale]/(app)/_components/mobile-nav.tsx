@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 import { Link, usePathname } from "../../../../i18n/routing";
 import { MenuIcon, XIcon, GlobeIcon, LogOutIcon } from "./icons";
@@ -43,8 +44,9 @@ export function MobileNav({
       >
         <MenuIcon size={16} strokeWidth={1.8} />
       </button>
-      {open ? (
-        <div className="fixed inset-0 z-50 lg:hidden">
+      {open
+        ? createPortal(
+            <div className="fixed inset-0 z-50 lg:hidden">
           <div
             className="absolute inset-0 bg-ink/25 backdrop-blur-[2px]"
             onClick={() => setOpen(false)}
@@ -94,8 +96,10 @@ export function MobileNav({
               </div>
             </div>
           </div>
-        </div>
-      ) : null}
+            </div>,
+            document.body,
+          )
+        : null}
     </>
   );
 }

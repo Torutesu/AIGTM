@@ -17,6 +17,7 @@ import {
   Card,
   EmptyState,
 } from "../_components/ui";
+import { SubmitButton } from "../_components/submit-button";
 
 interface SegmentRow {
   id: string;
@@ -175,12 +176,9 @@ function SegmentsView({
             className="flex flex-wrap items-end gap-3"
           >
             <FilterFields t={t} />
-            <button
-              type="submit"
-              className="rounded-lg bg-forest px-4 py-2 font-mono text-[11px] tracking-[0.06em] text-white uppercase hover:bg-forest-deep"
-            >
+            <SubmitButton className="rounded-lg bg-forest px-4 py-2 font-mono text-[11px] tracking-[0.06em] text-white uppercase hover:bg-forest-deep">
               {t("create")}
-            </button>
+            </SubmitButton>
           </form>
         </Card>
       ) : null}
@@ -239,12 +237,9 @@ function SegmentsView({
                         >
                           <input type="hidden" name="segmentId" value={s.id} />
                           <FilterFields t={t} seg={s} />
-                          <button
-                            type="submit"
-                            className="rounded-lg bg-forest px-3.5 py-2 font-mono text-[11px] tracking-[0.06em] text-white uppercase hover:bg-forest-deep"
-                          >
+                          <SubmitButton className="rounded-lg bg-forest px-3.5 py-2 font-mono text-[11px] tracking-[0.06em] text-white uppercase hover:bg-forest-deep">
                             {t("save")}
-                          </button>
+                          </SubmitButton>
                         </form>
                       </details>
                       <details className="group ml-auto">
@@ -259,12 +254,9 @@ function SegmentsView({
                           <span className="font-mono text-[10.5px] text-ink-faint">
                             {t("deleteConfirm")}
                           </span>
-                          <button
-                            type="submit"
-                            className="rounded-md bg-red-ink px-2.5 py-1 font-mono text-[10.5px] tracking-[0.04em] text-white uppercase"
-                          >
+                          <SubmitButton className="rounded-md bg-red-ink px-2.5 py-1 font-mono text-[10.5px] tracking-[0.04em] text-white uppercase">
                             {t("delete")}
-                          </button>
+                          </SubmitButton>
                         </form>
                       </details>
                     </div>

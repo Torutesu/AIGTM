@@ -5,6 +5,7 @@ import { desc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { schema, withOrg } from "@aigtm/db";
 import { PlayIcon } from "../../_components/icons";
+import { SubmitButton } from "../../_components/submit-button";
 import { ensureDb } from "../../../../../lib/db";
 import { requireSession } from "../../../../../lib/session";
 import { runAgentAction } from "../../../../../lib/actions";
@@ -113,13 +114,10 @@ function AgentView({
         {canAct ? (
           <form action={runAgentAction.bind(null, locale)}>
             <input type="hidden" name="agentId" value={agent.id} />
-            <button
-              type="submit"
-              className="flex shrink-0 items-center gap-1.5 rounded-lg bg-forest px-4 py-2.5 font-mono text-[11px] tracking-[0.06em] text-white uppercase transition-colors hover:bg-forest-deep"
-            >
+            <SubmitButton className="flex shrink-0 items-center gap-1.5 rounded-lg bg-forest px-4 py-2.5 font-mono text-[11px] tracking-[0.06em] text-white uppercase transition-colors hover:bg-forest-deep">
               <PlayIcon size={11} strokeWidth={2.4} />
               {t("run")}
-            </button>
+            </SubmitButton>
           </form>
         ) : null}
       </header>

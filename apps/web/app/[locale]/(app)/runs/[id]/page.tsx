@@ -10,6 +10,7 @@ import { Chip, Card, statusTone, stamp } from "../../_components/ui";
 import { Link } from "../../../../../i18n/routing";
 import { retryRunAction, cancelRunAction } from "../../../../../lib/actions";
 import { PlayIcon, XIcon } from "../../_components/icons";
+import { SubmitButton } from "../../_components/submit-button";
 
 interface RunRow {
   id: string;
@@ -126,39 +127,34 @@ function RunView({
               {run.agentName}
             </Link>
           </h1>
-          <Chip tone={statusTone(run.status)} dot>
+          <Chip
+            tone={statusTone(run.status)}
+            dot
+            pulse={run.status === "running"}
+          >
             {run.status}
           </Chip>
           {canAct && run.status === "rejected" ? (
             <form action={retryRunAction.bind(null, locale)} className="ml-auto">
               <input type="hidden" name="runId" value={run.id} />
-              <button
-                type="submit"
-                className="flex items-center gap-1.5 rounded-lg bg-forest px-4 py-2 font-mono text-[11px] tracking-[0.06em] text-white uppercase hover:bg-forest-deep"
-              >
+              <SubmitButton className="flex items-center gap-1.5 rounded-lg bg-forest px-4 py-2 font-mono text-[11px] tracking-[0.06em] text-white uppercase transition-colors hover:bg-forest-deep">
                 <PlayIcon size={11} strokeWidth={2.4} />
                 {t("retry")}
-              </button>
+              </SubmitButton>
             </form>
           ) : null}
           {canAct && run.status === "running" ? (
             <form action={cancelRunAction.bind(null, locale)} className="ml-auto">
               <input type="hidden" name="runId" value={run.id} />
-              <button
-                type="submit"
-                className="flex items-center gap-1.5 rounded-lg border border-line bg-card px-4 py-2 font-mono text-[11px] tracking-[0.06em] text-ink-soft uppercase hover:border-ink-faint"
-              >
+              <SubmitButton className="flex items-center gap-1.5 rounded-lg border border-line bg-card px-4 py-2 font-mono text-[11px] tracking-[0.06em] text-ink-soft uppercase transition-colors hover:border-ink-faint">
                 <XIcon size={11} strokeWidth={2.2} />
                 {t("cancel")}
-              </button>
+              </SubmitButton>
             </form>
           ) : null}
         </div>
         <p className="mt-1.5 font-mono text-[12px] text-ink-faint">
           {run.triggerKind} · {stamp(run.startedAt, locale)}
-          {run.tokensIn + run.tokensOut > 0
-            ? ` · ${run.tokensIn + run.tokensOut} tok`
-            : ""}
         </p>
         {run.error ? (
           <p className="mt-2 rounded-lg border border-red-soft bg-red-soft/40 px-3 py-2 font-mono text-[12px] text-red-ink">
@@ -167,13 +163,48 @@ function RunView({
         ) : null}
       </header>
 
+      <Card className="mb-8 grid grid-cols-2 divide-x divide-line-soft sm:grid-cols-4">
+        {(
+          [
+            [t("statSteps"), String(steps.length)],
+            [
+              t("statLatency"),
+              `${steps.reduce((a, s) => a + s.latencyMs, 0)}ms`,
+            ],
+            [
+              t("statTokens"),
+              run.tokensIn + run.tokensOut > 0
+                ? `${run.tokensIn} / ${run.tokensOut}`
+                : "—",
+            ],
+            [
+              t("statDuration"),
+              run.finishedAt
+                ? `${Math.max(0, new Date(run.finishedAt).getTime() - new Date(run.startedAt).getTime())}ms`
+                : "—",
+            ],
+          ] as const
+        ).map(([label, value]) => (
+          <div key={label} className="px-5 py-3.5">
+            <p className="font-mono text-[9.5px] tracking-label text-ink-faint uppercase">
+              {label}
+            </p>
+            <p className="mt-1 font-mono text-[15px] font-medium text-ink tabular-nums">
+              {value}
+            </p>
+          </div>
+        ))}
+      </Card>
+
       <section>
         <h2 className="mb-3 font-mono text-[11px] tracking-label text-ink-soft uppercase">
           {t("steps")}
         </h2>
         <Card className="px-5 py-2">
           <ol className="flex flex-col">
-            {steps.map((s, i) => (
+            {(() => {
+              const maxLatency = Math.max(1, ...steps.map((s) => s.latencyMs));
+              return steps.map((s, i) => (
               <li
                 key={s.id}
                 data-testid="run-step"
@@ -192,7 +223,13 @@ function RunView({
                     <Chip tone="neutral">{s.kind}</Chip>
                     {s.tool ? <Chip tone="info">{s.tool}</Chip> : null}
                     {s.model ? <Chip tone="neutral">{s.model}</Chip> : null}
-                    <span className="ml-auto font-mono text-[10.5px] text-ink-faint">
+                    <span className="ml-auto flex items-center gap-2 font-mono text-[10.5px] text-ink-faint">
+                      <span className="hidden h-1 w-16 overflow-hidden rounded-full bg-line-soft sm:block">
+                        <span
+                          className={`block h-full rounded-full ${s.status === "fulfilled" ? "bg-mint-ink/50" : "bg-red-ink/50"}`}
+                          style={{ width: `${Math.max(4, Math.round((s.latencyMs / maxLatency) * 100))}%` }}
+                        />
+                      </span>
                       {s.latencyMs}ms
                       {s.tokensIn + s.tokensOut > 0
                         ? ` · ${s.tokensIn + s.tokensOut} tok`
@@ -211,7 +248,8 @@ function RunView({
                   ) : null}
                 </div>
               </li>
-            ))}
+            ));
+            })()}
             {steps.length === 0 ? (
               <li className="py-8 text-center font-mono text-[11px] text-ink-faint">
                 —

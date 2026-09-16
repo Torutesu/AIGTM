@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { CheckIcon, XIcon, PencilIcon } from "./icons";
 import { Card } from "./ui";
+import { SubmitButton } from "./submit-button";
 
 type Draft = {
   from?: string;
@@ -182,13 +183,10 @@ export function ReviewPanel({
               className="w-full rounded-lg border border-line bg-paper px-3 py-2.5 text-[13px] text-ink outline-none placeholder:text-ink-faint focus:border-forest"
             />
             <div className="flex gap-2">
-              <button
-                type="submit"
-                className="flex items-center gap-1.5 rounded-lg bg-red-ink px-4 py-2 font-mono text-[11px] tracking-[0.06em] text-white uppercase"
-              >
+              <SubmitButton className="flex items-center gap-1.5 rounded-lg bg-red-ink px-4 py-2 font-mono text-[11px] tracking-[0.06em] text-white uppercase">
                 <XIcon size={13} strokeWidth={2.2} />
                 {t("confirmReject")}
-              </button>
+              </SubmitButton>
               <button
                 type="button"
                 onClick={() => setRejecting(false)}
@@ -205,13 +203,10 @@ export function ReviewPanel({
             <input type="hidden" name="approvalId" value={approvalId} />
             <input type="hidden" name="decision" value="approved" />
             {changed ? <input type="hidden" name="editedBody" value={body} /> : null}
-            <button
-              type="submit"
-              className="flex items-center gap-1.5 rounded-lg bg-forest px-5 py-2.5 font-mono text-[11px] tracking-[0.06em] text-white uppercase transition-colors hover:bg-forest-deep"
-            >
+            <SubmitButton className="flex items-center gap-1.5 rounded-lg bg-forest px-5 py-2.5 font-mono text-[11px] tracking-[0.06em] text-white uppercase transition-colors hover:bg-forest-deep">
               <CheckIcon size={13} strokeWidth={2.2} />
               {changed ? t("approveEdited") : t("approve")}
-            </button>
+            </SubmitButton>
           </form>
           <button
             type="button"

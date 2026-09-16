@@ -8,6 +8,8 @@ import { Link } from "../../../i18n/routing";
 import { SideNav } from "./_components/nav";
 import { CommandPalette } from "./_components/palette";
 import { MobileNav } from "./_components/mobile-nav";
+import { ToastHub } from "./_components/toast";
+import { readToast } from "../../../lib/toast";
 
 export const dynamic = "force-dynamic";
 
@@ -21,8 +23,14 @@ export default async function AppLayout({
   const { locale } = await params;
   setRequestLocale(locale);
   const session = await requireSession(locale);
+  const toast = await readToast();
   return (
-    <Shell locale={locale} email={session.email} role={session.role}>
+    <Shell
+      locale={locale}
+      email={session.email}
+      role={session.role}
+      toast={toast}
+    >
       {children}
     </Shell>
   );
@@ -33,11 +41,13 @@ function Shell({
   locale,
   email,
   role,
+  toast,
 }: {
   children: ReactNode;
   locale: string;
   email: string;
   role: string;
+  toast: string | null;
 }) {
   const t = useTranslations("nav");
   const other = locale === "en" ? "ja" : "en";
@@ -51,7 +61,7 @@ function Shell({
         </div>
 
         <div className="px-3 pt-4">
-          <CommandPalette />
+          <CommandPalette role={role} />
         </div>
 
         <div className="flex-1 overflow-y-auto px-3 py-4">
@@ -100,11 +110,15 @@ function Shell({
           <span className="wordmark text-[18px] font-bold">AIGTM</span>
         </header>
         <main>
-          <div className="mx-auto max-w-5xl px-4 py-6 sm:px-8 sm:py-8">
+          <div
+            data-page
+            className="mx-auto max-w-5xl px-4 py-6 sm:px-8 sm:py-8"
+          >
             {children}
           </div>
         </main>
       </div>
+      <ToastHub messageKey={toast} />
     </div>
   );
 }

@@ -11,6 +11,7 @@ import {
   removeMemberAction,
 } from "../../../../lib/actions";
 import { PageHeader, Card, Chip, EmptyState } from "../_components/ui";
+import { SubmitButton } from "../_components/submit-button";
 
 interface MemberRow {
   userId: string;
@@ -150,12 +151,9 @@ function SettingsView({
               ))}
             </select>
           </label>
-          <button
-            type="submit"
-            className="rounded-lg bg-forest px-4 py-2 font-mono text-[11px] tracking-[0.06em] text-white uppercase hover:bg-forest-deep"
-          >
+          <SubmitButton className="rounded-lg bg-forest px-4 py-2 font-mono text-[11px] tracking-[0.06em] text-white uppercase hover:bg-forest-deep">
             {t("add")}
-          </button>
+          </SubmitButton>
         </form>
       </Card>
 
@@ -206,12 +204,9 @@ function SettingsView({
                         </option>
                       ))}
                     </select>
-                    <button
-                      type="submit"
-                      className="rounded-md border border-line px-2.5 py-1.5 font-mono text-[10.5px] tracking-[0.04em] text-ink-soft uppercase hover:border-ink-faint"
-                    >
+                    <SubmitButton className="rounded-md border border-line px-2.5 py-1.5 font-mono text-[10.5px] tracking-[0.04em] text-ink-soft uppercase hover:border-ink-faint">
                       {t("save")}
-                    </button>
+                    </SubmitButton>
                   </form>
                   <details>
                     <summary className="cursor-pointer list-none rounded-md border border-line px-2.5 py-1.5 font-mono text-[10.5px] tracking-[0.04em] text-red-ink uppercase hover:border-red-ink/40">
@@ -225,12 +220,9 @@ function SettingsView({
                       <span className="font-mono text-[10.5px] text-ink-faint">
                         {t("removeConfirm")}
                       </span>
-                      <button
-                        type="submit"
-                        className="rounded-md bg-red-ink px-2.5 py-1 font-mono text-[10.5px] tracking-[0.04em] text-white uppercase"
-                      >
+                      <SubmitButton className="rounded-md bg-red-ink px-2.5 py-1 font-mono text-[10.5px] tracking-[0.04em] text-white uppercase">
                         {t("remove")}
-                      </button>
+                      </SubmitButton>
                     </form>
                   </details>
                 </>

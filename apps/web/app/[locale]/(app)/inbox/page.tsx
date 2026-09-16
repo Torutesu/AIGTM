@@ -9,6 +9,7 @@ import { ensureDb } from "../../../../lib/db";
 import { requireSession } from "../../../../lib/session";
 import { decideApprovalAction } from "../../../../lib/actions";
 import { PageHeader, Card, EmptyState, ScoreBar, timeAgo } from "../_components/ui";
+import { SubmitButton } from "../_components/submit-button";
 
 interface ApprovalRow {
   id: string;
@@ -184,14 +185,13 @@ function InboxView({
                         <form action={decideApprovalAction.bind(null, locale)}>
                           <input type="hidden" name="approvalId" value={ap.id} />
                           <input type="hidden" name="decision" value="approved" />
-                          <button
-                            type="submit"
-                            data-testid="approve-button"
+                          <SubmitButton
+                            testId="approve-button"
                             className="flex items-center gap-1.5 rounded-lg bg-forest px-4 py-2 font-mono text-[11px] tracking-[0.06em] text-white uppercase transition-colors hover:bg-forest-deep"
                           >
                             <CheckIcon size={13} strokeWidth={2.2} />
                             {t("approve")}
-                          </button>
+                          </SubmitButton>
                         </form>
                         ) : null}
                         <Link

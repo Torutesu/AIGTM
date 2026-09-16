@@ -5,6 +5,7 @@ import { desc, eq } from "drizzle-orm";
 import { schema, withOrg } from "@aigtm/db";
 import { Link } from "../../../../i18n/routing";
 import { ReviewPanel } from "../_components/review-panel";
+import { QueueShortcuts } from "../_components/queue-shortcuts";
 import { ensureDb } from "../../../../lib/db";
 import { requireSession } from "../../../../lib/session";
 import { decideApprovalAction } from "../../../../lib/actions";
@@ -157,6 +158,7 @@ function ReviewView({
       ) : (
         <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
           <div className="flex flex-col gap-5">
+            <QueueShortcuts />
             {[...byAgent.entries()].map(([agent, items]) => (
               <div key={agent}>
                 <p className="mb-2 px-1 font-mono text-[10px] tracking-label text-ink-faint uppercase">
@@ -170,6 +172,7 @@ function ReviewView({
                         <Link
                           href={`/approvals?${status ? `status=${status}&` : ""}selected=${r.id}`}
                           scroll={false}
+                          aria-current={active ? "true" : undefined}
                           className={`block rounded-lg border px-3.5 py-2.5 transition-colors ${
                             active
                               ? "border-line bg-card shadow-card"
@@ -194,6 +197,11 @@ function ReviewView({
                 </ul>
               </div>
             ))}
+            <p className="mt-1 hidden items-center gap-1.5 px-1 font-mono text-[10px] text-ink-faint lg:flex">
+              <kbd className="kbd">j</kbd>
+              <kbd className="kbd">k</kbd>
+              {t("navHint")}
+            </p>
           </div>
 
           <div>

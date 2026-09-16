@@ -21,6 +21,7 @@ import {
   clearSessionCookie,
   currentSession,
 } from "./session";
+import { flash } from "./toast";
 
 export async function signInAction(locale: string, formData: FormData) {
   const email = String(formData.get("email") ?? "").trim();
@@ -36,6 +37,7 @@ export async function signInAction(locale: string, formData: FormData) {
   }
   if (!result) redirect(`/${locale}/login?error=invalid`);
   await setSessionCookie(result.token);
+  await flash("signedIn");
   redirect(`/${locale}/inbox`);
 }
 
@@ -50,7 +52,10 @@ export async function signUpAction(locale: string, formData: FormData) {
     orgName: String(formData.get("orgName") ?? ""),
   });
   const res = await signIn(handle, { email, password });
-  if (res) await setSessionCookie(res.token);
+  if (res) {
+    await setSessionCookie(res.token);
+    await flash("signedIn");
+  }
   redirect(`/${locale}/inbox`);
 }
 
@@ -146,6 +151,7 @@ export async function updateMemberRoleAction(locale: string, formData: FormData)
       );
     },
   );
+  await flash("roleChanged");
   revalidatePath(`/${locale}/settings`);
 }
 
@@ -200,6 +206,7 @@ export async function addMemberAction(locale: string, formData: FormData) {
       );
     },
   );
+  await flash("memberAdded");
   revalidatePath(`/${locale}/settings`);
 }
 
@@ -237,6 +244,7 @@ export async function removeMemberAction(locale: string, formData: FormData) {
       );
     },
   );
+  await flash("memberRemoved");
   revalidatePath(`/${locale}/settings`);
 }
 
@@ -252,6 +260,7 @@ export async function runAgentAction(locale: string, formData: FormData) {
     { agentId, triggerKind: "manual" },
     defaultRouter(),
   );
+  await flash("runStarted");
   revalidatePath(`/${locale}/agents`);
   revalidatePath(`/${locale}/inbox`);
 }
@@ -273,6 +282,7 @@ export async function decideApprovalAction(locale: string, formData: FormData) {
     reason,
     editedBody == null ? undefined : { body: String(editedBody) },
   );
+  await flash(decision === "approved" ? "approved" : "dismissed");
   revalidatePath(`/${locale}/inbox`);
   revalidatePath(`/${locale}/approvals`);
 }
@@ -290,6 +300,7 @@ export async function retryRunAction(locale: string, formData: FormData) {
     triggerKind: "manual",
     triggerContext: { retriedFrom: runId },
   }, defaultRouter());
+  await flash("retried");
   revalidatePath(`/${locale}/agents`);
   redirect(`/${locale}/runs/${result.runId}`);
 }
@@ -305,6 +316,7 @@ export async function cancelRunAction(locale: string, formData: FormData) {
     { orgId: session.orgId, userId: session.userId },
     runId,
   );
+  await flash("cancelled");
   revalidatePath(`/${locale}/runs/${runId}`);
   revalidatePath(`/${locale}/agents`);
 }
@@ -348,6 +360,7 @@ export async function createSegmentAction(locale: string, formData: FormData) {
       );
     },
   );
+  await flash("segmentCreated");
   revalidatePath(`/${locale}/segments`);
 }
 
@@ -385,6 +398,7 @@ export async function updateSegmentAction(locale: string, formData: FormData) {
       );
     },
   );
+  await flash("segmentUpdated");
   revalidatePath(`/${locale}/segments`);
 }
 
@@ -419,5 +433,6 @@ export async function deleteSegmentAction(locale: string, formData: FormData) {
       );
     },
   );
+  await flash("segmentDeleted");
   revalidatePath(`/${locale}/segments`);
 }

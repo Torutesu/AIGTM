@@ -42,16 +42,22 @@ export function Chip({
   tone = "neutral",
   children,
   dot,
+  pulse,
 }: {
   tone?: ChipTone;
   children: ReactNode;
   dot?: boolean;
+  pulse?: boolean;
 }) {
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-mono text-[10px] tracking-[0.06em] uppercase ${chipTones[tone]}`}
     >
-      {dot ? <span className="size-1.5 rounded-full bg-current" /> : null}
+      {dot ? (
+        <span
+          className={`size-1.5 rounded-full bg-current ${pulse ? "animate-pulse-dot" : ""}`}
+        />
+      ) : null}
       {children}
     </span>
   );

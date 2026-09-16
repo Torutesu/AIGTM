@@ -2,6 +2,7 @@ import { useTranslations } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
 import { ArrowUpIcon } from "../(app)/_components/icons";
 import { signInAction, signUpAction } from "../../../lib/actions";
+import { SubmitButton } from "../(app)/_components/submit-button";
 
 export default async function LoginPage({
   params,
@@ -54,13 +55,10 @@ function LoginForm({ locale, error }: { locale: string; error?: string }) {
             />
             <div className="crop-marks mt-1">
               <span className="cm" aria-hidden />
-              <button
-                type="submit"
-                className="flex w-full items-center justify-center gap-2 rounded-lg bg-forest px-4 py-2.5 font-mono text-[12px] tracking-[0.08em] text-white uppercase transition-colors hover:bg-forest-deep"
-              >
+              <SubmitButton className="flex w-full items-center justify-center gap-2 rounded-lg bg-forest px-4 py-2.5 font-mono text-[12px] tracking-[0.08em] text-white uppercase transition-colors hover:bg-forest-deep">
                 {t("signIn")}
                 <ArrowUpIcon size={13} strokeWidth={2.2} />
-              </button>
+              </SubmitButton>
             </div>
           </form>
         </section>
@@ -80,12 +78,9 @@ function LoginForm({ locale, error }: { locale: string; error?: string }) {
               placeholder={t("password")}
               className={inputCls}
             />
-            <button
-              type="submit"
-              className="mt-1 rounded-lg border border-forest px-4 py-2.5 font-mono text-[12px] tracking-[0.08em] text-forest uppercase transition-colors hover:bg-mint"
-            >
+            <SubmitButton className="mt-1 flex items-center justify-center gap-2 rounded-lg border border-forest px-4 py-2.5 font-mono text-[12px] tracking-[0.08em] text-forest uppercase transition-colors hover:bg-mint">
               {t("signUp")}
-            </button>
+            </SubmitButton>
           </form>
         </section>
       </div>

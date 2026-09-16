@@ -9,6 +9,7 @@ import { ensureDb } from "../../../../lib/db";
 import { requireSession } from "../../../../lib/session";
 import { runAgentAction } from "../../../../lib/actions";
 import { PageHeader, Chip, Card, EmptyState, statusTone, stamp } from "../_components/ui";
+import { SubmitButton } from "../_components/submit-button";
 
 interface AgentRow {
   id: string;
@@ -123,14 +124,13 @@ function AgentsView({
                   {canAct ? (
                     <form action={runAgentAction.bind(null, locale)}>
                       <input type="hidden" name="agentId" value={agent.id} />
-                      <button
-                        type="submit"
-                        data-testid={`run-${agent.id}`}
+                      <SubmitButton
+                        testId={`run-${agent.id}`}
                         className="flex items-center gap-1.5 rounded-lg bg-forest px-3.5 py-1.5 font-mono text-[11px] tracking-[0.06em] text-white uppercase transition-colors hover:bg-forest-deep"
                       >
                         <PlayIcon size={11} strokeWidth={2.4} />
                         {t("run")}
-                      </button>
+                      </SubmitButton>
                     </form>
                   ) : null}
                 </div>

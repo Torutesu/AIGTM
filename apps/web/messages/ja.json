@@ -97,7 +97,8 @@
     "filterPending": "承認待ち",
     "filterApproved": "承認済み",
     "filterRejected": "却下済み",
-    "viewOnly": "閲覧のみ — このロールでは承認操作はできません。"
+    "viewOnly": "閲覧のみ — このロールでは承認操作はできません。",
+    "navHint": "でキューを移動"
   },
   "accounts": {
     "eyebrow": "Records / Accounts",
@@ -127,7 +128,13 @@
     "accounts": "アカウント",
     "contacts": "コンタクト",
     "deals": "商談",
-    "agents": "エージェント"
+    "agents": "エージェント",
+    "pages": "ページ",
+    "results": "レコード",
+    "navigate": "移動",
+    "open": "開く",
+    "close": "閉じる",
+    "searching": "検索中…"
   },
   "segments": {
     "eyebrow": "Records / Segments",
@@ -198,7 +205,11 @@
     "eyebrow": "Agents / Run",
     "steps": "ステップ",
     "retry": "再実行",
-    "cancel": "キャンセル"
+    "cancel": "キャンセル",
+    "statSteps": "ステップ",
+    "statLatency": "計算時間",
+    "statTokens": "トークン in/out",
+    "statDuration": "所要時間"
   },
   "deals": {
     "eyebrow": "Records / Opportunities",
@@ -255,5 +266,20 @@
     "title": "ページが見つかりません",
     "body": "このレコードは存在しないか、アクセス権がありません。",
     "back": "Inbox へ戻る"
+  },
+  "toast": {
+    "approved": "承認を実行しました",
+    "dismissed": "却下しました",
+    "runStarted": "実行を開始しました",
+    "retried": "再実行をキューしました",
+    "cancelled": "実行をキャンセルしました",
+    "segmentCreated": "セグメントを作成しました",
+    "segmentUpdated": "セグメントを更新しました",
+    "segmentDeleted": "セグメントを削除しました",
+    "memberAdded": "メンバーを追加しました",
+    "memberRemoved": "メンバーを削除しました",
+    "roleChanged": "ロールを変更しました",
+    "signedIn": "サインインしました",
+    "dismiss": "通知を閉じる"
   }
 }
