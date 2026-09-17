@@ -60,3 +60,13 @@ export function maskSecret(plain: string): string {
   if (plain.length <= 8) return "…";
   return `${plain.slice(0, 3)}…${plain.slice(-4)}`;
 }
+
+/** Generate a new ingest/webhook key: "aigtm_<base64url>". */
+export function newIngestKey(): string {
+  return `aigtm_${randomBytes(24).toString("base64url")}`;
+}
+
+/** sha256 hex — stored for lookup; plaintext keys are never persisted. */
+export function hashSecret(plain: string): string {
+  return createHash("sha256").update(plain).digest("hex");
+}

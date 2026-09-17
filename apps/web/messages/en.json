@@ -190,7 +190,15 @@
     "roleReasoning": "reasoning",
     "roleFast": "fast",
     "roleWriting": "writing",
-    "roleJapanese": "japanese"
+    "roleJapanese": "japanese",
+    "webhook": "Inbound webhook",
+    "webhookNote": "Push messages and signal events into AIGTM. Generate a key, then POST to the endpoint — signal events fire event-triggered agents on the next worker tick.",
+    "endpoint": "Endpoint",
+    "generate": "Generate key",
+    "regenerate": "Regenerate",
+    "revoke": "Revoke",
+    "newKeyBanner": "New ingest key — copy it now, it is shown only once:",
+    "exampleCurl": "Example"
   },
   "account": {
     "eyebrow": "Records / Account",
@@ -298,6 +306,7 @@
     "dismiss": "Dismiss notification",
     "keySaved": "API key saved",
     "keyRemoved": "API key removed",
-    "routingSaved": "Model routing saved"
+    "routingSaved": "Model routing saved",
+    "ingestRevoked": "Ingest key revoked"
   }
 }

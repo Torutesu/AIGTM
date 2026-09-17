@@ -190,7 +190,15 @@
     "roleReasoning": "reasoning（推論）",
     "roleFast": "fast（高速）",
     "roleWriting": "writing（文書生成）",
-    "roleJapanese": "japanese（日本語）"
+    "roleJapanese": "japanese（日本語）",
+    "webhook": "Webhook 取り込み",
+    "webhookNote": "メッセージとシグナルイベントを AIGTM に投入します。キーを生成してエンドポイントに POST してください — シグナルイベントは次のワーカー tick で event トリガーのエージェントを起動します。",
+    "endpoint": "エンドポイント",
+    "generate": "キーを生成",
+    "regenerate": "再生成",
+    "revoke": "失効",
+    "newKeyBanner": "新しい ingest キー — 今だけ表示されます。コピーしてください:",
+    "exampleCurl": "例"
   },
   "account": {
     "eyebrow": "Records / Account",
@@ -298,6 +306,7 @@
     "dismiss": "通知を閉じる",
     "keySaved": "APIキーを保存しました",
     "keyRemoved": "APIキーを削除しました",
-    "routingSaved": "モデルルーティングを保存しました"
+    "routingSaved": "モデルルーティングを保存しました",
+    "ingestRevoked": "Ingest キーを失効しました"
   }
 }

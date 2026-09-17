@@ -186,7 +186,7 @@ describe("routerForOrg (BYOK)", () => {
     vi.stubGlobal("fetch", fetchMock);
     const res = await router.complete(step, {});
     expect(res.model).toBe("openai:gpt-4.1-mini");
-    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(init.headers).toMatchObject({ authorization: "Bearer sk-org-secret-9999" });
     expect(String(init.body)).toContain("gpt-4.1-mini");
 

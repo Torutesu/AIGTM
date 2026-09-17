@@ -386,3 +386,62 @@ test("viewer sees admin-only notice on settings", async ({ browser }) => {
   await expect(page.getByTestId("providers-card")).toHaveCount(0);
   await ctx.close();
 });
+
+test("ingest webhook: generate key, POST signal event, it lands", async ({ page }) => {
+  await page.goto("/en/settings");
+  await page.getByTestId("generate-ingest-key").click();
+  await page.waitForURL("**/en/settings?k=**");
+  const key = await page.getByTestId("new-ingest-key").textContent();
+  expect(key).toMatch(/^aigtm_/);
+
+  // bad key is rejected
+  const bad = await page.request.post("/api/ingest", {
+    headers: { authorization: "Bearer wrong" },
+    data: { type: "signal_event", signalName: "x", score: 10 },
+  });
+  expect(bad.status()).toBe(401);
+
+  // real event → lands in signal_events (visible on the Signals page)
+  const res = await page.request.post("/api/ingest", {
+    headers: { authorization: `Bearer ${key}` },
+    data: {
+      type: "signal_event",
+      signalName: "Executive hire",
+      accountDomain: "nordic-systems.example",
+      score: 91,
+      evidence: { source: "e2e", note: "hook test" },
+    },
+  });
+  expect(res.status()).toBe(200);
+  const body = await res.json();
+  expect(body.ok).toBe(true);
+  expect(body.id).toBeTruthy();
+
+  await page.goto("/en/signals");
+  await expect(page.getByText("91").first()).toBeVisible();
+
+  // message ingest → conversation dedupes
+  const m1 = await page.request.post("/api/ingest", {
+    headers: { authorization: `Bearer ${key}` },
+    data: {
+      type: "message",
+      channel: "email",
+      subject: "E2E ingest test",
+      from: "rin@acme-robotics.example",
+      body: "hello from the webhook",
+    },
+  });
+  expect(m1.status()).toBe(200);
+  const m2 = await page.request.post("/api/ingest", {
+    headers: { authorization: `Bearer ${key}` },
+    data: {
+      type: "message",
+      channel: "email",
+      subject: "E2E ingest test",
+      from: "rin@acme-robotics.example",
+      body: "hello from the webhook",
+    },
+  });
+  const m2body = await m2.json();
+  expect(m2body.inserted).toBe(0); // deduped
+});

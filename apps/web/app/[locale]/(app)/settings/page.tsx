@@ -18,6 +18,8 @@ import {
   saveProviderKeyAction,
   removeProviderKeyAction,
   saveRoutingAction,
+  generateIngestKeyAction,
+  revokeIngestKeyAction,
 } from "../../../../lib/actions";
 import { PageHeader, Card, Chip, EmptyState } from "../_components/ui";
 import { SubmitButton } from "../_components/submit-button";
@@ -52,10 +54,13 @@ const PROVIDER_LABELS: Record<string, string> = {
 
 export default async function SettingsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string }>;
+  searchParams: Promise<{ k?: string }>;
 }) {
   const { locale } = await params;
+  const { k: newKey } = await searchParams;
   setRequestLocale(locale);
   const session = await requireSession(locale);
 
@@ -99,6 +104,7 @@ export default async function SettingsPage({
     };
   });
   const roles = cfg.roles ?? {};
+  const ingestConfigured = !!cfg.ingestKeyHash;
 
   return (
     <SettingsView
@@ -107,6 +113,8 @@ export default async function SettingsPage({
       selfId={session.userId}
       providers={providerState}
       roles={roles}
+      ingestConfigured={ingestConfigured}
+      newKey={newKey ?? null}
     />
   );
 }
@@ -130,12 +138,16 @@ function SettingsView({
   selfId,
   providers,
   roles,
+  ingestConfigured,
+  newKey,
 }: {
   locale: string;
   members: MemberRow[];
   selfId: string;
   providers: { id: string; masked: string | null; viaEnv: boolean }[];
   roles: Partial<Record<string, string>>;
+  ingestConfigured: boolean;
+  newKey: string | null;
 }) {
   const t = useTranslations("settings");
   return (
@@ -145,6 +157,57 @@ function SettingsView({
         title={t("title")}
         meta={t("memberCount", { count: members.length })}
       />
+
+      {newKey ? (
+        <Card className="mb-8 border-forest/40 bg-mint/30 px-5 py-4">
+          <p className="mb-2 font-mono text-[11px] text-ink">
+            {t("newKeyBanner")}
+          </p>
+          <code
+            data-testid="new-ingest-key"
+            className="block rounded-md border border-line bg-paper px-3 py-2 font-mono text-[12px] break-all text-ink select-all"
+          >
+            {newKey}
+          </code>
+        </Card>
+      ) : null}
+
+      {/* Inbound webhook: how data gets in */}
+      <Card className="mb-8 px-5 py-4" data-testid="webhook-card">
+        <p className="mb-1 font-mono text-[10px] tracking-label text-ink-faint uppercase">
+          {t("webhook")}
+        </p>
+        <p className="mb-3 font-mono text-[11px] leading-relaxed text-ink-faint">
+          {t("webhookNote")}
+        </p>
+        <div className="mb-3 flex items-center gap-3">
+          <code className="rounded-md border border-line bg-paper px-3 py-1.5 font-mono text-[11.5px] text-ink-soft">
+            POST /api/ingest
+          </code>
+          {ingestConfigured ? (
+            <Chip tone="good">{t("configured")}</Chip>
+          ) : (
+            <Chip tone="neutral">{t("notSet")}</Chip>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <form action={generateIngestKeyAction.bind(null, locale)}>
+            <SubmitButton
+              testId="generate-ingest-key"
+              className="rounded-lg bg-forest px-4 py-2 font-mono text-[11px] tracking-[0.06em] text-white uppercase hover:bg-forest-deep"
+            >
+              {ingestConfigured ? t("regenerate") : t("generate")}
+            </SubmitButton>
+          </form>
+          {ingestConfigured ? (
+            <form action={revokeIngestKeyAction.bind(null, locale)}>
+              <SubmitButton className="rounded-md px-2.5 py-2 font-mono text-[10.5px] tracking-[0.04em] text-red-ink uppercase hover:bg-red-ink/10">
+                {t("revoke")}
+              </SubmitButton>
+            </form>
+          ) : null}
+        </div>
+      </Card>
 
       {/* BYOK: org-level provider keys */}
       <Card className="mb-8 px-5 py-4" data-testid="providers-card">

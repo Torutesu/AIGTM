@@ -18,6 +18,8 @@ import {
   withOrg,
   audit,
   encryptSecret,
+  newIngestKey,
+  hashSecret,
   type OrgProviderConfig,
 } from "@aigtm/db";
 import { ensureDb } from "./db";
@@ -558,5 +560,50 @@ export async function saveRoutingAction(locale: string, formData: FormData) {
     }),
   );
   await flash("routingSaved");
+  revalidatePath(`/${locale}/settings`);
+}
+
+/* ---------- Inbound webhook key ---------- */
+
+export async function generateIngestKeyAction(locale: string) {
+  const handle = await ensureDb();
+  const session = await currentSession();
+  if (!session) redirect(`/${locale}/login`);
+  requireAdmin(session);
+
+  const key = newIngestKey();
+  const cfg = await readProviderConfig(handle, session.orgId);
+  cfg.ingestKeyHash = hashSecret(key);
+  await writeProviderConfig(handle, session.orgId, cfg);
+  await withOrg(handle, { orgId: session.orgId, userId: session.userId }, (tx) =>
+    audit(tx, { orgId: session.orgId, userId: session.userId }, {
+      action: "provider.ingest_key_generated",
+      entityType: "organization",
+      entityId: session.orgId,
+      detail: {},
+    }),
+  );
+  // shown once via ?k= — only the sha256 is stored
+  redirect(`/${locale}/settings?k=${encodeURIComponent(key)}`);
+}
+
+export async function revokeIngestKeyAction(locale: string) {
+  const handle = await ensureDb();
+  const session = await currentSession();
+  if (!session) redirect(`/${locale}/login`);
+  requireAdmin(session);
+
+  const cfg = await readProviderConfig(handle, session.orgId);
+  delete cfg.ingestKeyHash;
+  await writeProviderConfig(handle, session.orgId, cfg);
+  await withOrg(handle, { orgId: session.orgId, userId: session.userId }, (tx) =>
+    audit(tx, { orgId: session.orgId, userId: session.userId }, {
+      action: "provider.ingest_key_revoked",
+      entityType: "organization",
+      entityId: session.orgId,
+      detail: {},
+    }),
+  );
+  await flash("ingestRevoked");
   revalidatePath(`/${locale}/settings`);
 }

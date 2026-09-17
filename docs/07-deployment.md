@@ -175,6 +175,17 @@ docker compose --profile app up --build
 
 - `GET /api/health` — liveness/readiness probe; `200 {"ok":true,"db":"up"}` or
   `503`. Unauthenticated, for load balancers/uptime checks.
+- `POST /api/ingest` — org-scoped webhook intake. `Authorization: Bearer
+  <ingest key>` (generated per-org in `/settings`; only the sha256 is
+  stored). Two payload types:
+  - `{"type":"message","channel":"email|call|meeting|slack","from":"…","to":[…],
+     "subject":"…","body":"…","occurredAt":"…"}` → `conversations` (sender
+     domain → account resolution, deduped by channel+subject)
+  - `{"type":"signal_event","signalName"|"signalId","accountDomain"|"accountId",
+     "score":…,"evidence":{…}}` → `signal_events`; qualifying events fire
+     `event: signal_event` agents on the next worker tick
+  Both write `ingest.*` audit events. This is the real capture path until
+  native connectors ship — point Zapier/n8n/cron jobs at it.
 - Security headers on all routes: `X-Content-Type-Options: nosniff`,
   `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`,
   `Permissions-Policy` denying camera/mic/geo.

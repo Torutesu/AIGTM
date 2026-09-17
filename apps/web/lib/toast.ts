@@ -16,6 +16,10 @@ const KEYS = new Set([
   "memberRemoved",
   "roleChanged",
   "signedIn",
+  "keySaved",
+  "keyRemoved",
+  "routingSaved",
+  "ingestRevoked",
 ]);
 
 /** Set a one-shot toast consumed by ToastHub on the next render. */
