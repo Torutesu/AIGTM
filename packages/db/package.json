@@ -13,7 +13,8 @@
     "generate": "drizzle-kit generate",
     "seed": "tsx src/seed.ts",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src --max-warnings 0"
+    "lint": "eslint src --max-warnings 0",
+    "migrate": "tsx src/migrate.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.3.4",

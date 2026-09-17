@@ -1,0 +1,9 @@
+**/node_modules
+**/.next
+**/.next-e2e
+**/.pglite*
+**/test-results
+**/playwright-report
+.git
+docs
+*.png

@@ -1,8 +1,10 @@
 # Deployment & Operations
 
 Status of what's verified: migrations, RLS, seed, and the agent runtime have
-been exercised against real PostgreSQL (pgvector/pg16 via docker-compose), and
-the web app served authenticated pages + `/api/search` on that database.
+been exercised against real PostgreSQL (pgvector/pg16 via docker-compose).
+The web app has been verified in **production mode** (`next build` +
+`next start` on real Postgres): login, every sidebar page, JA/EN locales,
+`/api/search`, `/api/health`, and security headers all pass.
 Everything below reflects what was actually run — not aspirational config.
 
 ## Environments
@@ -105,8 +107,39 @@ pnpm --filter @aigtm/web start   # serves apps/web on :3000
 First boot on a fresh database:
 
 ```bash
-DATABASE_URL=... pnpm db:seed   # migrate + demo org/users/data
+DATABASE_URL=... pnpm db:migrate  # drizzle migrations + RLS (idempotent)
+DATABASE_URL=... pnpm db:seed     # + demo org/users/data (skip for a clean tenant)
 ```
+
+## Docker
+
+One image serves web, worker, and one-shot jobs:
+
+```bash
+docker build -t aigtm .
+docker run -e DATABASE_URL=... aigtm            # web on :3000
+docker run -e DATABASE_URL=... aigtm worker     # trigger worker
+docker run -e DATABASE_URL=... aigtm migrate    # migrations + RLS
+docker run -e DATABASE_URL=... aigtm seed       # + demo seed
+```
+
+Full local stack (db + migrate + seed + web + worker):
+
+```bash
+docker compose --profile app up --build
+# web on http://localhost:3000, admin@aigtm.local / admin-password
+```
+
+## HTTP surface
+
+- `GET /api/health` — liveness/readiness probe; `200 {"ok":true,"db":"up"}` or
+  `503`. Unauthenticated, for load balancers/uptime checks.
+- Security headers on all routes: `X-Content-Type-Options: nosniff`,
+  `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`,
+  `Permissions-Policy` denying camera/mic/geo.
+- TLS: the session cookie is `secure` in production — terminate TLS in front
+  (load balancer / ingress). Plain-HTTP deployments behind a domain won't
+  carry the cookie.
 
 ## Roles
 
@@ -147,6 +180,9 @@ an explicit phase gate (see `docs/05-roadmap.md`).
 
 These are the honest gaps before selling this:
 
+- [x] Deployable artifact: root Dockerfile (web/worker/migrate/seed) +
+      `docker compose --profile app`; prod-mode smoke verified on real Postgres
+- [x] `/api/health` probe + baseline security headers
 - [ ] Managed Postgres + migrations in CI (`applyRls` is idempotent, safe in deploy)
 - [ ] Real auth provider (current: cookie sessions + scrypt). Rate limiting,
       sliding TTL and secure cookies are in; SSO/OAuth and email verification

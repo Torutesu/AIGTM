@@ -1,6 +1,6 @@
 import { dirname, join } from "node:path";
 import type { DbHandle } from "./client";
-import { packageRequire } from "./client";
+import { createDb, packageRequire } from "./client";
 import { applyRls } from "./rls";
 
 /**
@@ -25,4 +25,12 @@ export async function migrate(handle: DbHandle, folder = migrationsFolder()) {
       : (req("drizzle-orm/node-postgres/migrator") as typeof import("drizzle-orm/node-postgres/migrator"));
   await mod.migrate(handle.db, { migrationsFolder: folder });
   await applyRls(handle.db);
+}
+
+// CLI entry: pnpm --filter @aigtm/db migrate
+if (process.argv[1] && process.argv[1].endsWith("migrate.ts")) {
+  const handle = await createDb();
+  await migrate(handle);
+  console.log("migrated");
+  await handle.close();
 }

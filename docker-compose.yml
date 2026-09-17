@@ -1,4 +1,8 @@
-# Optional: real Postgres for development. Phase 0 default is PGlite (no docker needed).
+# Local Postgres for development (default dev uses PGlite — no docker needed):
+#   docker compose up -d db
+#
+# Full stack demo (web + trigger worker + migrate + seed):
+#   docker compose --profile app up --build
 services:
   db:
     image: pgvector/pgvector:pg16
@@ -10,5 +14,59 @@ services:
       - "54329:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aigtm -d aigtm"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    profiles: ["app"]
+    build: .
+    command: migrate
+    environment:
+      DATABASE_URL: postgres://aigtm:aigtm@db:5432/aigtm
+    depends_on:
+      db:
+        condition: service_healthy
+
+  seed:
+    profiles: ["app"]
+    build: .
+    command: seed
+    environment:
+      DATABASE_URL: postgres://aigtm:aigtm@db:5432/aigtm
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-admin-password}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  web:
+    profiles: ["app"]
+    build: .
+    command: web
+    environment:
+      DATABASE_URL: postgres://aigtm:aigtm@db:5432/aigtm
+      # LLM providers — optional; unset roles fall back to deterministic mock.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    ports:
+      - "3000:3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  worker:
+    profiles: ["app"]
+    build: .
+    command: worker
+    environment:
+      DATABASE_URL: postgres://aigtm:aigtm@db:5432/aigtm
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
 volumes:
   pgdata:
