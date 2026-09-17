@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 import { Link, usePathname } from "../../../../i18n/routing";
-import { MenuIcon, XIcon, GlobeIcon, LogOutIcon } from "./icons";
+import { MenuIcon, XIcon, GlobeIcon, LogOutIcon, Logo } from "./icons";
 import { SideNav } from "./nav";
 
 export function MobileNav({
@@ -53,7 +53,7 @@ export function MobileNav({
           />
           <div className="absolute inset-y-0 left-0 flex w-64 flex-col border-r border-line bg-paper">
             <div className="flex h-14 items-center justify-between border-b border-line-soft px-4">
-              <span className="wordmark text-[20px] font-bold">AIGTM</span>
+              <Logo size={22} textClassName="text-[19px]" />
               <button
                 type="button"
                 aria-label={t("close")}

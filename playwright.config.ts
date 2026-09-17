@@ -14,6 +14,7 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     env: {
       DATABASE_URL: "pglite://./.pglite-e2e",
+      AIGTM_E2E: "1",
     },
   },
 });

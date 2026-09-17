@@ -3,6 +3,7 @@ import { setRequestLocale } from "next-intl/server";
 import { ArrowUpIcon } from "../(app)/_components/icons";
 import { signInAction, signUpAction } from "../../../lib/actions";
 import { SubmitButton } from "../(app)/_components/submit-button";
+import { HorseMark } from "../(app)/_components/icons";
 
 export default async function LoginPage({
   params,
@@ -30,8 +31,11 @@ function LoginForm({ locale, error }: { locale: string; error?: string }) {
           <p className="font-mono text-[11px] tracking-label text-ink-faint uppercase">
             {app("tagline")}
           </p>
-          <h1 className="wordmark mt-3 text-[52px] leading-none font-bold">
-            {app("title")}
+          <h1 className="mt-4 flex items-center justify-center gap-3 text-forest-deep">
+            <HorseMark size={52} />
+            <span className="text-[44px] leading-none font-bold tracking-[0.01em]">
+              {app("title")}
+            </span>
           </h1>
         </div>
 

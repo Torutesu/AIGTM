@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
-import { GlobeIcon, LogOutIcon } from "./_components/icons";
+import { GlobeIcon, LogOutIcon, Logo } from "./_components/icons";
 import { requireSession } from "../../../lib/session";
 import { signOutAction } from "../../../lib/actions";
 import { Link } from "../../../i18n/routing";
@@ -55,8 +55,8 @@ function Shell({
     <div className="flex min-h-screen">
       <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-line bg-paper lg:flex">
         <div className="flex h-16 items-center border-b border-line-soft px-5">
-          <Link href="/inbox" className="flex items-baseline gap-2">
-            <span className="wordmark text-[22px] font-bold">AIGTM</span>
+          <Link href="/inbox">
+            <Logo size={24} textClassName="text-[20px]" />
           </Link>
         </div>
 
@@ -107,7 +107,7 @@ function Shell({
             role={role}
             signOut={signOutAction.bind(null, locale)}
           />
-          <span className="wordmark text-[18px] font-bold">AIGTM</span>
+          <Logo size={20} textClassName="text-[17px]" />
         </header>
         <main>
           <div

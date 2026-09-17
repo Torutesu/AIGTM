@@ -36,19 +36,6 @@ body {
   color: var(--color-ink);
 }
 
-/* Barcode-striped display type — echoes the Frontrunner wordmark language. */
-.wordmark {
-  background-image: repeating-linear-gradient(
-    90deg,
-    var(--color-forest) 0 2.5px,
-    transparent 2.5px 5px
-  );
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  letter-spacing: 0.02em;
-}
-
 /* Crop marks: + at each corner of a framed element (CTA / section label). */
 .crop-marks {
   position: relative;

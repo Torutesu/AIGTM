@@ -176,6 +176,64 @@ export const ArrowUpIcon = (p: P) => (
   </IconBase>
 );
 
+/** AIGTM emblem — horse head silhouette, polo-crest language. */
+export function HorseMark({
+  size = 20,
+  className = "",
+}: {
+  size?: number;
+  className?: string;
+}) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden
+      className={className}
+    >
+      <path d="M 13.2 1.1 L 15.4 3.9 C 18.1 5.6 20.4 9.4 21 13.6 C 21.3 17 20.9 19.9 20.1 22 L 10.8 22 C 10.7 20.6 10.9 19.3 11.5 18.2 C 10.4 17.9 9.4 17.8 8.6 17.4 C 7.1 16.6 6 15.9 5.4 15.2 C 4.9 14.7 4.1 14.3 3.9 13.5 C 3.75 12.7 4.15 12.1 4.9 11.5 L 8.4 7.1 C 9.6 5.6 11.3 4.5 13 4 Z" />
+      <circle cx="12.9" cy="8.1" r="1.1" fill="var(--color-paper)" />
+      <path
+        d="M 4.35 13.6 C 4.8 14.1 5.5 14.5 6.3 14.85"
+        stroke="var(--color-paper)"
+        strokeWidth="0.5"
+        fill="none"
+        strokeLinecap="round"
+      />
+      <path
+        d="M 15.9 5.4 C 18.2 7 19.9 10.2 20.4 13.6"
+        stroke="var(--color-paper)"
+        strokeWidth="0.45"
+        fill="none"
+        strokeLinecap="round"
+        opacity="0.5"
+      />
+    </svg>
+  );
+}
+
+/** Emblem + wordmark lockup. */
+export function Logo({
+  size = 20,
+  textClassName = "text-[18px]",
+  className = "",
+}: {
+  size?: number;
+  textClassName?: string;
+  className?: string;
+}) {
+  return (
+    <span className={`inline-flex items-center gap-2 text-forest-deep ${className}`}>
+      <HorseMark size={size} />
+      <span className={`font-bold tracking-[0.01em] ${textClassName}`}>
+        AIGTM
+      </span>
+    </span>
+  );
+}
+
 export const SettingsIcon = (p: P) => (
   <IconBase {...p}>
     <circle cx="12" cy="12" r="3" />
