@@ -7,7 +7,8 @@ import {
   type OrgContext,
 } from "@aigtm/db";
 import { parseAgentSpec, type AgentSpec } from "@aigtm/specs";
-import { ModelRouter } from "./model";
+import { ModelRouter, estimateCostCents } from "./model";
+import { logEvent } from "./log";
 import { tools } from "./tools";
 
 export interface ExecuteRunOptions {
@@ -16,6 +17,15 @@ export interface ExecuteRunOptions {
   triggerKind: "manual" | "schedule" | "event" | "api";
   triggerContext?: Record<string, unknown>;
   actorId?: string;
+}
+
+/**
+ * Per-run spend brake in cents. 0 = unlimited. When set, a run that would
+ * exceed the ceiling is rejected before its next LLM step — the run row
+ * records the partial cost so the overspend is auditable.
+ */
+export function runCostLimitCents(): number {
+  return Number(process.env.AIGTM_RUN_COST_LIMIT_CENTS ?? 0);
 }
 
 /**
@@ -72,12 +82,20 @@ export async function executeRun(
       steps: {} as Record<string, unknown>,
     };
     let tokensIn = 0,
-      tokensOut = 0;
+      tokensOut = 0,
+      costCents = 0;
+    const runStart = Date.now();
+    const costLimit = runCostLimitCents();
 
     // 3. steps
     try {
       for (const step of spec.steps) {
         try {
+          if (costLimit > 0 && costCents > costLimit) {
+            throw new Error(
+              `cost ceiling exceeded: ${costCents.toFixed(2)}¢ > ${costLimit}¢`,
+            );
+          }
           let output: unknown;
           let model: string | null = null;
           let stepIn = 0,
@@ -102,6 +120,7 @@ export async function executeRun(
           (context.steps as Record<string, unknown>)[step.id] = output;
           tokensIn += stepIn;
           tokensOut += stepOut;
+          costCents += estimateCostCents(model, stepIn, stepOut);
 
           await tx.insert(schema.runSteps).values({
             orgId: ctx.orgId,
@@ -188,7 +207,13 @@ export async function executeRun(
       // 6. close run
       await tx
         .update(schema.runs)
-        .set({ status: "fulfilled", finishedAt: new Date(), tokensIn, tokensOut })
+        .set({
+          status: "fulfilled",
+          finishedAt: new Date(),
+          tokensIn,
+          tokensOut,
+          costCents: costCents.toFixed(4),
+        })
         .where(eq(schema.runs.id, run.id));
       await audit(tx, ctx, {
         action: "run.completed",
@@ -196,13 +221,31 @@ export async function executeRun(
         entityId: run.id,
         detail: { steps: spec.steps.length, outboxIds, approvalRequired },
       });
+      logEvent("run.completed", {
+        orgId: ctx.orgId,
+        runId: run.id,
+        agentId,
+        triggerKind: opts.triggerKind,
+        steps: spec.steps.length,
+        tokensIn,
+        tokensOut,
+        costCents: Number(costCents.toFixed(4)),
+        durationMs: Date.now() - runStart,
+      });
 
       return { runId: run.id, status: "fulfilled" as const, outboxIds };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       await tx
         .update(schema.runs)
-        .set({ status: "rejected", finishedAt: new Date(), error: message, tokensIn, tokensOut })
+        .set({
+          status: "rejected",
+          finishedAt: new Date(),
+          error: message,
+          tokensIn,
+          tokensOut,
+          costCents: costCents.toFixed(4),
+        })
         .where(eq(schema.runs.id, run.id));
       await audit(tx, ctx, {
         action: "run.failed",
@@ -210,6 +253,21 @@ export async function executeRun(
         entityId: run.id,
         detail: { error: message },
       });
+      logEvent(
+        "run.failed",
+        {
+          orgId: ctx.orgId,
+          runId: run.id,
+          agentId,
+          triggerKind: opts.triggerKind,
+          error: message,
+          tokensIn,
+          tokensOut,
+          costCents: Number(costCents.toFixed(4)),
+          durationMs: Date.now() - runStart,
+        },
+        "warn",
+      );
       return { runId: run.id, status: "rejected" as const, error: message };
     }
   });

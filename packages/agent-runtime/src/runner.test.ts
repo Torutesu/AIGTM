@@ -216,3 +216,58 @@ describe("run retry/cancel", () => {
     );
   });
 });
+
+describe("cost ceiling", () => {
+  it("rejects the run once spend crosses AIGTM_RUN_COST_LIMIT_CENTS and records partial cost", async () => {
+    const expensive = {
+      name: "expensive",
+      async complete() {
+        return {
+          output: { x: "ok" },
+          tokensIn: 1_000_000, // ≈ $3 at sonnet input price
+          tokensOut: 0,
+          latencyMs: 1,
+          model: "anthropic:claude-sonnet-4-5",
+        };
+      },
+    };
+    const router = new ModelRouter([expensive], { reasoning: "expensive" });
+    const spec = parseAgentSpec(`
+name: Spendy
+trigger: {type: manual}
+steps:
+  - id: a
+    kind: llm
+    model: reasoning
+    output: { x: string }
+  - id: b
+    kind: llm
+    model: reasoning
+    output: { y: string }
+approval: {before_act: none}
+`);
+    const id = await withOrg(handle, ctx(), async (tx) => {
+      const [a] = await tx
+        .insert(schema.agents)
+        .values({ orgId, name: "Spendy", spec })
+        .returning();
+      return a.id;
+    });
+
+    process.env.AIGTM_RUN_COST_LIMIT_CENTS = "10";
+    try {
+      const res = await executeRun(handle, ctx(), { agentId: id, triggerKind: "manual" }, router);
+      expect(res.status).toBe("rejected");
+      expect(res.error).toContain("cost ceiling");
+
+      const [run] = (await withOrg(handle, ctx(), (tx) =>
+        tx.select().from(schema.runs).where(eq(schema.runs.id, res.runId!)),
+      )) as { costCents: string; tokensIn: number }[];
+      // first step's spend was recorded before the brake engaged
+      expect(Number(run.costCents)).toBeGreaterThan(200);
+      expect(run.tokensIn).toBe(1_000_000);
+    } finally {
+      delete process.env.AIGTM_RUN_COST_LIMIT_CENTS;
+    }
+  });
+});

@@ -34,6 +34,7 @@ Everything below reflects what was actually run — not aspirational config.
 | `AIGTM_MODEL_<ROLE>` | `mock` | Per-role provider routing. `<ROLE>` ∈ `REASONING` `FAST` `WRITING` `JAPANESE`; value = provider name (`mock`/`anthropic`/`openai`). Prefs naming an unregistered provider are ignored. |
 | `AIGTM_ANTHROPIC_MODEL_<ROLE>` / `AIGTM_OPENAI_MODEL_<ROLE>` | per-provider defaults | Override the concrete model id per role. |
 | `AIGTM_WORKER_INTERVAL_MS` | `15000` | Scheduler poll interval for the trigger worker. |
+| `AIGTM_RUN_COST_LIMIT_CENTS` | `0` (unlimited) | Per-run spend brake. A run that would cross the ceiling is rejected before its next LLM step; partial spend is recorded on `runs.cost_cents`. |
 | `AIGTM_E2E` (internal) | — | Set by Playwright's webServer env via `DATABASE_URL=pglite://./.pglite-e2e`. |
 
 ### Model providers
@@ -59,8 +60,37 @@ pnpm --filter @aigtm/agent-runtime worker -- --once # single tick (cron-friendly
   fires once (deduped by `triggerContext.signalEventId`), honoring
   `trigger.where.score_gte`.
 - The tick iterates every organization in isolation via `withOrg` and runs as
-  `actorType: "system"`. Safe to run as a single replica; for multi-replica
-  run `--once` on one cron host.
+  `actorType: "system"`.
+- **Multi-replica safe**: on pg the worker takes a session-scoped advisory
+  lock (`pg_try_advisory_lock`); a second replica logs `worker.lease_denied`
+  and exits. A crashed holder releases automatically.
+
+## Observability
+
+Run lifecycle and worker events emit single-line JSON on stdout
+(`{"ts","level","event",…}`) via `logEvent` — ingest with any log sink.
+Events: `run.completed`, `run.failed` (with orgId/runId/agentId, tokens,
+costCents, durationMs), `worker.started`, `worker.tick`, `worker.tick_failed`,
+`worker.lease_denied`. Prompts/outputs/secrets are never logged. Per-run cost
+is also persisted on `runs.cost_cents` (price table in
+`packages/agent-runtime/src/model.ts`).
+
+## Backups
+
+```bash
+DATABASE_URL=postgres://... ./scripts/backup.sh [outdir]   # compressed pg_dump
+pg_restore --clean --if-exists -d "$DATABASE_URL" file.dump
+```
+
+Schedule it via cron/systemd; on managed Postgres, enable provider PITR and
+treat `backup.sh` as the export/portability path.
+
+## CI
+
+`.github/workflows/ci.yml` runs three jobs on push/PR: lint + typecheck +
+unit tests + build; a pg16 service job running migrate → seed →
+`verify-postgres.ts` (RLS + lease + runtime checks); and the Playwright E2E
+suite with the report uploaded on failure.
 
 ## Local Postgres workflow (verified)
 
@@ -162,11 +192,11 @@ docker compose --profile app up --build
   `sameSite=lax`, `path=/`, and `secure` when `NODE_ENV=production`.
 - TTL via `AIGTM_SESSION_TTL_HOURS`; sessions past half-life get a fresh
   `expiresAt` on read (sliding expiration).
-- Sign-in is throttled in-memory per email: 5 failures within 10 minutes locks
-  for 60s (`SignInLocked` → `?error=locked`). Passwords are verified against a
-  dummy hash for unknown emails so timing doesn't reveal account existence.
-  The limiter is process-local — swap for a shared store when running more
-  than one app replica.
+- Sign-in is throttled per email in the `login_attempts` table: 5 failures
+  within 10 minutes locks for 60s (`SignInLocked` → `?error=locked`). Being
+  DB-backed, the lock holds across replicas and restarts. Passwords are
+  verified against a dummy hash for unknown emails so timing doesn't reveal
+  account existence.
 
 ## External actions — mock-only invariant
 
@@ -183,16 +213,20 @@ These are the honest gaps before selling this:
 - [x] Deployable artifact: root Dockerfile (web/worker/migrate/seed) +
       `docker compose --profile app`; prod-mode smoke verified on real Postgres
 - [x] `/api/health` probe + baseline security headers
-- [ ] Managed Postgres + migrations in CI (`applyRls` is idempotent, safe in deploy)
+- [x] CI: lint/typecheck/unit/build + pg16 migrate/seed/RLS-verify + E2E
+      (`.github/workflows/ci.yml`)
 - [ ] Real auth provider (current: cookie sessions + scrypt). Rate limiting,
       sliding TTL and secure cookies are in; SSO/OAuth and email verification
       are not.
-- [ ] Shared sign-in throttle + session invalidation across replicas
-      (current limiter is per-process)
-- [x] LLM providers behind env (`ANTHROPIC_API_KEY`/`OPENAI_API_KEY` +
-      `AIGTM_MODEL_<ROLE>`); still needed: cost ceilings and eval gating
+- [x] Sign-in throttle is DB-backed (`login_attempts`) — consistent across
+      replicas; sessions live in `sessions` so invalidation is already global
+- [x] LLM providers behind env + per-run cost ceiling
+      (`AIGTM_RUN_COST_LIMIT_CENTS`) and `runs.cost_cents` accounting;
+      still needed: eval gating and per-org budgets
 - [ ] Connector real implementations behind env flags, keeping mock default
-- [x] Scheduled/event triggers: `worker` process ships (single-replica
-      safe); multi-replica needs a shared lease/queue
-- [ ] Backups, PITR, and per-region data residency story for JP customers
-- [ ] Observability: audit_events exist, but ship them to a log sink
+- [x] Scheduled/event triggers: `worker` is multi-replica safe via pg
+      advisory lease; a queued executor (Temporal/Trigger.dev) is the scale-up path
+- [x] Backups: `scripts/backup.sh` (pg_dump custom format); provider PITR and
+      a per-region residency story are still an ops decision
+- [x] Observability: structured JSON logs for run lifecycle + worker events;
+      audit_events remain queryable in-app. Next: a metrics endpoint

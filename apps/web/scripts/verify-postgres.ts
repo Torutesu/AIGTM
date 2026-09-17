@@ -123,6 +123,17 @@ const [hung] = (await withOrg(handle, ctx, async (tx) =>
 const cancelled = await cancelRun(handle, ctx, hung.id);
 check("cancelRun cancels running run", cancelled.status === "cancelled");
 
+// Worker lease: pg advisory lock grants once, denies the second holder,
+// and frees on release.
+const first = await handle.tryLease("verify-lease");
+check("advisory lease granted", first !== null);
+const second = await handle.tryLease("verify-lease");
+check("second lease denied while held", second === null);
+await first!();
+const third = await handle.tryLease("verify-lease");
+check("lease reacquired after release", third !== null);
+await third!();
+
 await handle.close();
 console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} check(s) failed.`);
 process.exit(failures === 0 ? 0 : 1);

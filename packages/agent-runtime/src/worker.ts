@@ -10,20 +10,33 @@
 import { createDb, migrate } from "@aigtm/db";
 import { tick } from "./scheduler";
 import { defaultRouter } from "./model";
+import { logEvent } from "./log";
 
 const intervalMs = Number(process.env.AIGTM_WORKER_INTERVAL_MS ?? 15_000);
 const once = process.argv.includes("--once");
 
 const handle = await createDb();
 await migrate(handle);
+
+// Multi-replica safety: only one worker ticks at a time. The pg advisory
+// lock is session-scoped, so a crashed holder releases automatically.
+const release = await handle.tryLease("aigtm-worker");
+if (!release) {
+  logEvent("worker.lease_denied", { reason: "another replica holds the lease" });
+  await handle.close();
+  process.exit(0);
+}
+process.on("SIGINT", () => void release().finally(() => process.exit(0)));
+process.on("SIGTERM", () => void release().finally(() => process.exit(0)));
+
 const router = defaultRouter();
 
 async function loop() {
   try {
     const n = await tick(handle, { router });
-    if (n > 0) console.log(`[worker] ${new Date().toISOString()} launched ${n} run(s)`);
+    if (n > 0) logEvent("worker.tick", { launched: n });
   } catch (err) {
-    console.error("[worker] tick failed:", err);
+    logEvent("worker.tick_failed", { error: String(err) }, "warn");
   }
 }
 
@@ -32,5 +45,5 @@ if (once) {
   await handle.close();
   process.exit(0);
 }
-console.log(`[worker] polling every ${intervalMs}ms (driver: ${handle.driver})`);
+logEvent("worker.started", { intervalMs, driver: handle.driver });
 setInterval(loop, intervalMs);

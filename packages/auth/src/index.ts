@@ -10,13 +10,13 @@ import {
 const SESSION_TTL_MS =
   Number(process.env.AIGTM_SESSION_TTL_HOURS ?? 168) * 3600_000;
 
-/* Sign-in throttling: in-memory per-email failure counter. 5 failures in
- * a 10-minute window locks that email for 60s. Process-local — sufficient
- * for a single-node deploy; move to a shared store when scaling out. */
+/* Sign-in throttling: DB-backed per-email failure counter (`login_attempts`
+ * table). 5 failures in a 10-minute window locks that email for 60s. Shared
+ * state so it holds across replicas — the counter survives restarts and
+ * concurrent app instances see the same lock. */
 const SIGNIN_WINDOW_MS = 10 * 60_000;
 const SIGNIN_MAX_FAILS = 5;
 const SIGNIN_LOCK_MS = 60_000;
-const failures = new Map<string, { count: number; first: number; lockedUntil: number }>();
 
 export class SignInLocked extends Error {
   constructor(public retryAfterMs: number) {
@@ -28,26 +28,53 @@ export class SignInLocked extends Error {
 // Valid-format hash used to keep verify timing uniform for unknown emails.
 const DUMMY_HASH = hashPassword("timing-equalizer");
 
-function checkThrottle(email: string) {
-  const f = failures.get(email);
-  if (!f) return;
-  if (f.lockedUntil > Date.now()) throw new SignInLocked(f.lockedUntil - Date.now());
-  if (Date.now() - f.first > SIGNIN_WINDOW_MS) failures.delete(email);
-}
+type Db = DbHandle["db"];
 
-function recordFailure(email: string) {
-  const now = Date.now();
-  const f = failures.get(email);
-  if (!f || now - f.first > SIGNIN_WINDOW_MS) {
-    failures.set(email, { count: 1, first: now, lockedUntil: 0 });
-    return;
+async function checkThrottle(db: Db, email: string) {
+  const [row] = await db
+    .select()
+    .from(schema.loginAttempts)
+    .where(eq(schema.loginAttempts.email, email))
+    .limit(1);
+  if (row?.lockedUntil && row.lockedUntil.getTime() > Date.now()) {
+    throw new SignInLocked(row.lockedUntil.getTime() - Date.now());
   }
-  f.count++;
-  if (f.count >= SIGNIN_MAX_FAILS) f.lockedUntil = now + SIGNIN_LOCK_MS;
 }
 
-function clearFailures(email: string) {
-  failures.delete(email);
+async function recordFailure(db: Db, email: string) {
+  const now = new Date();
+  const [row] = await db
+    .select()
+    .from(schema.loginAttempts)
+    .where(eq(schema.loginAttempts.email, email))
+    .limit(1);
+  const windowExpired =
+    !row || now.getTime() - row.windowStartedAt.getTime() > SIGNIN_WINDOW_MS;
+  const count = windowExpired ? 1 : row.failCount + 1;
+  await db
+    .insert(schema.loginAttempts)
+    .values({
+      email,
+      failCount: count,
+      windowStartedAt: windowExpired || !row ? now : row.windowStartedAt,
+      lockedUntil: count >= SIGNIN_MAX_FAILS ? new Date(now.getTime() + SIGNIN_LOCK_MS) : null,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: schema.loginAttempts.email,
+      set: {
+        failCount: count,
+        windowStartedAt: windowExpired || !row ? now : row.windowStartedAt,
+        lockedUntil: count >= SIGNIN_MAX_FAILS ? new Date(now.getTime() + SIGNIN_LOCK_MS) : null,
+        updatedAt: now,
+      },
+    });
+}
+
+async function clearFailures(db: Db, email: string) {
+  await db
+    .delete(schema.loginAttempts)
+    .where(eq(schema.loginAttempts.email, email));
 }
 
 export interface SessionInfo {
@@ -90,8 +117,8 @@ export async function signIn(
   input: { email: string; password: string },
 ): Promise<{ token: string; session: SessionInfo } | null> {
   const email = input.email.toLowerCase();
-  checkThrottle(email);
   const db = handle.db;
+  await checkThrottle(db, email);
   const [user] = await db
     .select()
     .from(schema.users)
@@ -101,10 +128,10 @@ export async function signIn(
   // reveal whether the account exists
   const ok = verifyPassword(input.password, user?.passwordHash ?? DUMMY_HASH);
   if (!user || !ok) {
-    recordFailure(email);
+    await recordFailure(db, email);
     return null;
   }
-  clearFailures(email);
+  await clearFailures(db, email);
 
   const [membership] = await db
     .select()

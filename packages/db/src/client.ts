@@ -17,6 +17,13 @@ export interface DbHandle {
   db: any;
   driver: DriverKind;
   close: () => Promise<void>;
+  /**
+   * Cross-process advisory lease (pg only). Returns a release function, or
+   * null when another process holds the lease. PGlite is single-process —
+   * the lease is always granted. Lock is session-scoped: it is released
+   * automatically if the holder disconnects, so a crashed worker frees it.
+   */
+  tryLease: (name: string) => Promise<null | (() => Promise<void>)>;
 }
 
 export interface OrgContext {
@@ -77,6 +84,7 @@ export async function createDb(url = databaseUrl()): Promise<DbHandle> {
       db: drizzle(client, { schema }),
       driver: "pglite",
       close: () => client.close(),
+      tryLease: async () => async () => {},
     };
   }
   const { drizzle } = req("drizzle-orm/node-postgres") as typeof import("drizzle-orm/node-postgres");
@@ -86,6 +94,28 @@ export async function createDb(url = databaseUrl()): Promise<DbHandle> {
     db: drizzle(pool, { schema }),
     driver: "pg",
     close: () => pool.end(),
+    tryLease: async (name) => {
+      const client = await pool.connect();
+      try {
+        const r = await client.query(
+          "SELECT pg_try_advisory_lock(hashtextextended($1, 0)) AS got",
+          [name],
+        );
+        if (!r.rows[0]?.got) {
+          client.release();
+          return null;
+        }
+        return async () => {
+          await client
+            .query("SELECT pg_advisory_unlock(hashtextextended($1, 0))", [name])
+            .catch(() => {});
+          client.release();
+        };
+      } catch (err) {
+        client.release();
+        throw err;
+      }
+    },
   };
 }
 

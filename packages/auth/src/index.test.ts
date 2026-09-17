@@ -54,6 +54,14 @@ describe("auth", () => {
     await expect(
       signIn(handle, { email, password: "pw-123456" }),
     ).rejects.toThrow(SignInLocked);
+
+    // lock state lives in the DB, so it survives process restarts
+    const [row] = await handle.db
+      .select()
+      .from(schema.loginAttempts)
+      .where(eq(schema.loginAttempts.email, email));
+    expect(row.failCount).toBeGreaterThanOrEqual(5);
+    expect(row.lockedUntil!.getTime()).toBeGreaterThan(Date.now());
   });
 
   it("returns null for expired sessions", async () => {

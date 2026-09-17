@@ -133,3 +133,17 @@ describe("MockProvider", () => {
     expect(a.output).toEqual(b.output);
   });
 });
+
+describe("estimateCostCents", () => {
+  it("prices known models and zeroes unknown/mock", async () => {
+    const { estimateCostCents } = await import("./model");
+    // sonnet: 1M in @ $3 = 300¢
+    expect(estimateCostCents("anthropic:claude-sonnet-4-5", 1_000_000, 0)).toBeCloseTo(300);
+    // gpt-4.1: 1M out @ $8 = 800¢
+    expect(estimateCostCents("openai:gpt-4.1", 0, 1_000_000)).toBeCloseTo(800);
+    // mini must not match the gpt-4.1 prefix first
+    expect(estimateCostCents("openai:gpt-4.1-mini", 1_000_000, 0)).toBeCloseTo(40);
+    expect(estimateCostCents("mock:reasoning", 1_000_000, 1_000_000)).toBe(0);
+    expect(estimateCostCents(null, 5, 5)).toBe(0);
+  });
+});

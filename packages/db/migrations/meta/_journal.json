@@ -8,6 +8,13 @@
       "when": 1789368119662,
       "tag": "0000_lame_stingray",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789620850581,
+      "tag": "0001_funny_mister_fear",
+      "breakpoints": true
     }
   ]
 }

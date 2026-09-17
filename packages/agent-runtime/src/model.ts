@@ -279,3 +279,29 @@ export function defaultRouter(): ModelRouter {
   }
   return new ModelRouter(providers, roleMap);
 }
+
+/* ------------------------------------------------------------------ */
+/* Cost accounting — estimate USD from provider usage + price table.   */
+/* Prefix-matched on the "<provider>:<model>" ids we record on steps.   */
+/* ------------------------------------------------------------------ */
+
+/** [model prefix, $/1M input tokens, $/1M output tokens] — most specific first. */
+const MODEL_PRICES: [string, number, number][] = [
+  ["openai:gpt-4.1-mini", 0.4, 1.6],
+  ["anthropic:claude-opus", 15, 75],
+  ["anthropic:claude-sonnet", 3, 15],
+  ["anthropic:claude-haiku", 0.8, 4],
+  ["openai:gpt-4.1", 2, 8],
+];
+
+/** Estimated cost in cents. Unknown models price at 0 (mock included). */
+export function estimateCostCents(
+  model: string | null,
+  tokensIn: number,
+  tokensOut: number,
+): number {
+  if (!model) return 0;
+  const p = MODEL_PRICES.find(([prefix]) => model.startsWith(prefix));
+  if (!p) return 0;
+  return ((tokensIn * p[1] + tokensOut * p[2]) / 1_000_000) * 100;
+}

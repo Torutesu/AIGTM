@@ -29,6 +29,21 @@ export const sessions = pgTable("sessions", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+/**
+ * Cross-replica sign-in throttle. One row per email; fail count resets when
+ * the window expires, lockedUntil gates sign-in while set. Global (not
+ * org-scoped, no RLS) because throttling happens before authentication.
+ */
+export const loginAttempts = pgTable("login_attempts", {
+  email: text("email").primaryKey(),
+  failCount: integer("fail_count").notNull().default(0),
+  windowStartedAt: timestamp("window_started_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  lockedUntil: timestamp("locked_until", { withTimezone: true }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const organizations = pgTable("organizations", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name").notNull(),
