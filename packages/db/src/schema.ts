@@ -48,6 +48,11 @@ export const organizations = pgTable("organizations", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name").notNull(),
   plan: text("plan").notNull().default("internal"),
+  /**
+   * BYOK provider config. Shape: OrgProviderConfig —
+   * keys are AES-256-GCM ciphertext (crypto.ts), never plaintext.
+   */
+  providerConfig: jsonb("provider_config"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 

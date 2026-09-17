@@ -175,7 +175,22 @@
     "remove": "Remove",
     "removeConfirm": "Remove from workspace?",
     "rolesNote": "Admins manage members and settings. Editors can run agents and approve. Viewers are read-only.",
-    "adminOnly": "Only admins can view workspace settings."
+    "adminOnly": "Only admins can view workspace settings.",
+    "providers": "Model providers",
+    "providersNote": "Bring your own key (BYOK). Keys are stored AES-256-GCM encrypted and never shown again. Env vars OPENAI_API_KEY / ANTHROPIC_API_KEY apply when no org key is set.",
+    "apiKey": "API key",
+    "keyPlaceholder": "sk-…",
+    "configured": "Configured",
+    "fromEnv": "via env",
+    "notSet": "Not set",
+    "removeKey": "Remove",
+    "routing": "Model routing",
+    "routingNote": "Route each model role to a provider or a specific model. Routes need a configured key; anything else falls back to mock (deterministic, offline).",
+    "routeDefault": "Default (env / mock)",
+    "roleReasoning": "reasoning",
+    "roleFast": "fast",
+    "roleWriting": "writing",
+    "roleJapanese": "japanese"
   },
   "account": {
     "eyebrow": "Records / Account",
@@ -280,6 +295,9 @@
     "memberRemoved": "Member removed",
     "roleChanged": "Role updated",
     "signedIn": "Signed in",
-    "dismiss": "Dismiss notification"
+    "dismiss": "Dismiss notification",
+    "keySaved": "API key saved",
+    "keyRemoved": "API key removed",
+    "routingSaved": "Model routing saved"
   }
 }

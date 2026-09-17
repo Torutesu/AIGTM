@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
+import { eq } from "drizzle-orm";
 import {
   AnthropicProvider,
   OpenAIProvider,
@@ -145,5 +146,50 @@ describe("estimateCostCents", () => {
     expect(estimateCostCents("openai:gpt-4.1-mini", 1_000_000, 0)).toBeCloseTo(40);
     expect(estimateCostCents("mock:reasoning", 1_000_000, 1_000_000)).toBe(0);
     expect(estimateCostCents(null, 5, 5)).toBe(0);
+  });
+});
+
+describe("routerForOrg (BYOK)", () => {
+  it("org key wins over env, and provider:model routes carry the override", async () => {
+    const { createDb, migrate, schema, encryptSecret } = await import("@aigtm/db");
+    const { routerForOrg } = await import("./model");
+    const handle = await createDb("memory:");
+    await migrate(handle);
+    const [org] = await handle.db
+      .insert(schema.organizations)
+      .values({ name: "BYOK Org" })
+      .returning();
+
+    // org stores an encrypted openai key + an explicit model route
+    const cfg = {
+      keys: { openai: encryptSecret("sk-org-secret-9999") },
+      roles: { reasoning: "openai:gpt-4.1-mini" },
+    };
+    await handle.db
+      .update(schema.organizations)
+      .set({ providerConfig: cfg })
+      .where(eq(schema.organizations.id, org.id));
+
+    const router = await routerForOrg(handle, org.id);
+    expect(router.providerFor("reasoning").name).toBe("openai");
+    expect(router.providerFor("fast").name).toBe("mock"); // unset → fallback
+
+    // capture the outbound call: org key + overridden model
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: '{"summary":"hi"}' } }],
+        usage: { prompt_tokens: 10, completion_tokens: 5 },
+        model: "gpt-4.1-mini",
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    const res = await router.complete(step, {});
+    expect(res.model).toBe("openai:gpt-4.1-mini");
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(init.headers).toMatchObject({ authorization: "Bearer sk-org-secret-9999" });
+    expect(String(init.body)).toContain("gpt-4.1-mini");
+
+    await handle.close();
   });
 });

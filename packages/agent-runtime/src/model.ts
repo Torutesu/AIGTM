@@ -1,4 +1,11 @@
 import type { ModelRole, AgentStep } from "@aigtm/specs";
+import { eq } from "drizzle-orm";
+import {
+  schema,
+  decryptSecret,
+  type DbHandle,
+  type OrgProviderConfig,
+} from "@aigtm/db";
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
@@ -15,6 +22,7 @@ export interface ModelProvider {
   complete(
     step: AgentStep,
     context: Record<string, unknown>,
+    modelOverride?: string,
   ): Promise<ModelResult>;
 }
 
@@ -82,7 +90,7 @@ export class ModelRouter {
   }
 
   providerFor(role: ModelRole): ModelProvider {
-    const name = this.roleMap[role];
+    const name = this.roleMap[role].split(":")[0];
     const p = this.providers.find((p) => p.name === name);
     if (!p) throw new Error(`no provider registered for role ${role} (→ ${name})`);
     return p;
@@ -90,7 +98,10 @@ export class ModelRouter {
 
   async complete(step: AgentStep, context: Record<string, unknown>): Promise<ModelResult> {
     const role = step.model ?? "reasoning";
-    return this.providerFor(role).complete(step, context);
+    const target = this.roleMap[role];
+    // role values are "provider" or "provider:model" (BYOK routing UI sets the latter)
+    const modelOverride = target.includes(":") ? target.split(":").slice(1).join(":") : undefined;
+    return this.providerFor(role).complete(step, context, modelOverride);
   }
 }
 
@@ -152,10 +163,17 @@ abstract class HttpJsonProvider implements ModelProvider {
   }>;
   protected abstract modelFor(role: ModelRole): string;
 
-  async complete(step: AgentStep, context: Record<string, unknown>): Promise<ModelResult> {
+  async complete(
+    step: AgentStep,
+    context: Record<string, unknown>,
+    modelOverride?: string,
+  ): Promise<ModelResult> {
     const role = step.model ?? "reasoning";
     const start = Date.now();
-    const res = await this.call(buildUserPrompt(step, context), this.modelFor(role));
+    const res = await this.call(
+      buildUserPrompt(step, context),
+      modelOverride ?? this.modelFor(role),
+    );
     return {
       output: extractJson(res.text),
       tokensIn: res.tokensIn,
@@ -284,6 +302,47 @@ export function defaultRouter(): ModelRouter {
 /* Cost accounting — estimate USD from provider usage + price table.   */
 /* Prefix-matched on the "<provider>:<model>" ids we record on steps.   */
 /* ------------------------------------------------------------------ */
+
+/**
+ * Org-scoped router: BYOK keys saved in /settings (organizations.provider_
+ * config, AES-GCM encrypted) take precedence over env keys; unset roles fall
+ * back to env routing, then to mock. The worker resolves this per org, so a
+ * single deployment serves tenants with different providers.
+ */
+export async function routerForOrg(
+  handle: DbHandle,
+  orgId: string,
+): Promise<ModelRouter> {
+  const [org] = (await handle.db
+    .select({ providerConfig: schema.organizations.providerConfig })
+    .from(schema.organizations)
+    .where(eq(schema.organizations.id, orgId))
+    .limit(1)) as { providerConfig: OrgProviderConfig | null }[];
+  const cfg = org?.providerConfig;
+
+  const openaiKey =
+    decryptSecret(cfg?.keys?.openai) ?? process.env.OPENAI_API_KEY;
+  const anthropicKey =
+    decryptSecret(cfg?.keys?.anthropic) ?? process.env.ANTHROPIC_API_KEY;
+
+  const providers: ModelProvider[] = [];
+  if (openaiKey) providers.push(new OpenAIProvider(openaiKey));
+  if (anthropicKey) providers.push(new AnthropicProvider(anthropicKey));
+  providers.push(new MockProvider());
+
+  const roleMap: Partial<Record<ModelRole, string>> = {};
+  for (const role of ["reasoning", "fast", "writing", "japanese"] as ModelRole[]) {
+    const orgPref = cfg?.roles?.[role];
+    const envPref = process.env[`AIGTM_MODEL_${role.toUpperCase()}`];
+    const pref = orgPref ?? envPref;
+    // org prefs may be "provider:model"; validate the provider part is live
+    const providerName = pref?.split(":")[0];
+    if (providerName && providers.some((p) => p.name === providerName)) {
+      roleMap[role] = pref;
+    }
+  }
+  return new ModelRouter(providers, roleMap);
+}
 
 /** [model prefix, $/1M input tokens, $/1M output tokens] — most specific first. */
 const MODEL_PRICES: [string, number, number][] = [

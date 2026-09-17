@@ -305,3 +305,84 @@ test("sign-in locks after repeated failures", async ({ browser }) => {
   await expect(page.getByText("Too many failed attempts")).toBeVisible();
   await ctx.close();
 });
+
+test("settings: BYOK key save → masked → route → remove", async ({ page }) => {
+  await page.goto("/en/settings");
+  const card = page.getByTestId("provider-openai");
+  await expect(card.getByText("Not set")).toBeVisible();
+
+  // save a key — never echoed back, only masked
+  await card.locator('input[name="key"]').fill("sk-test-abcdef1234");
+  await card.getByRole("button", { name: "Save" }).click();
+  await page.waitForLoadState("networkidle");
+  await expect(card.getByText(/Configured sk-…1234/)).toBeVisible();
+
+  // route a role to a concrete model and save
+  await page.getByTestId("route-reasoning").selectOption("openai:gpt-4.1-mini");
+  await page.getByTestId("routing-card").getByRole("button", { name: "Save" }).click();
+  await page.waitForLoadState("networkidle");
+  await expect(page.getByTestId("route-reasoning")).toHaveValue("openai:gpt-4.1-mini");
+
+  // remove the key
+  await card.getByRole("button", { name: "Remove" }).click();
+  await page.waitForLoadState("networkidle");
+  await expect(card.getByText("Not set")).toBeVisible();
+});
+
+test("run detail shows stats strip and step latencies", async ({ page }) => {
+  await page.goto("/en/agents");
+  await page.locator('[data-testid="agent-card"] a').first().click();
+  await page.waitForURL("**/en/agents/*");
+  await page.locator('a[href*="/runs/"]').first().click();
+  await page.waitForURL("**/en/runs/*");
+  await expect(page.getByText("Steps").first()).toBeVisible();
+  await expect(page.getByText("Tokens").first()).toBeVisible();
+  await expect(page.getByText("Duration").first()).toBeVisible();
+});
+
+test("audit page lists recent events", async ({ page }) => {
+  await page.goto("/en/audit");
+  await expect(page.getByText(/run\.(started|completed)|approval\./).first()).toBeVisible();
+});
+
+test("sign out returns to login", async ({ page }) => {
+  await page.getByRole("button", { name: "Sign out" }).first().click();
+  await page.waitForURL("**/en/login");
+  const signIn = page.locator("form").filter({ hasText: "Sign in" });
+  await expect(signIn.getByPlaceholder("Email")).toBeVisible();
+});
+
+test("palette finds contacts, deals and agents", async ({ page }) => {
+  await page.goto("/en/inbox");
+  for (const [q, hint] of [["Elena", "Contact"], ["Nordic", "Account"]] as const) {
+    await page.getByRole("button", { name: /Search or jump to/ }).click();
+    await page.getByPlaceholder(/Search/i).fill(q);
+    await expect(page.getByText(hint).first()).toBeVisible();
+    await page.keyboard.press("Escape");
+  }
+});
+
+test("account 360 renders score, contacts and deals", async ({ page }) => {
+  await page.goto("/en/accounts");
+  await page.locator("tbody tr a").first().click();
+  await page.waitForURL("**/en/accounts/*");
+  await expect(page.getByRole("heading", { name: "Nordic Systems" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Signals" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Contacts" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Opportunities" })).toBeVisible();
+});
+
+test("viewer sees admin-only notice on settings", async ({ browser }) => {
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  await page.goto("/en/login");
+  const signIn = page.locator("form").filter({ hasText: "Sign in" });
+  await signIn.getByPlaceholder("Email").fill("viewer@aigtm.local");
+  await signIn.getByPlaceholder("Password").fill("viewer-password");
+  await signIn.getByRole("button", { name: "Sign in", exact: true }).click();
+  await page.waitForURL("**/en/inbox");
+  await page.goto("/en/settings");
+  await expect(page.getByText(/admin/i).first()).toBeVisible();
+  await expect(page.getByTestId("providers-card")).toHaveCount(0);
+  await ctx.close();
+});

@@ -85,13 +85,15 @@ export function statusTone(status: string): ChipTone {
 export function Card({
   children,
   className = "",
+  ...rest
 }: {
   children: ReactNode;
   className?: string;
-}) {
+} & React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       className={`rounded-xl border border-line bg-card shadow-card ${className}`}
+      {...rest}
     >
       {children}
     </div>

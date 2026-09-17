@@ -7,7 +7,7 @@ import {
 } from "@aigtm/db";
 import { parseAgentSpec } from "@aigtm/specs";
 import { executeRun } from "./runner";
-import type { ModelRouter } from "./model";
+import { routerForOrg, type ModelRouter } from "./model";
 
 /* ------------------------------------------------------------------ */
 /* Minimal cron matcher — 5 fields "min hour dom month dow".            */
@@ -212,6 +212,8 @@ export async function tick(
       return work;
     });
 
+    // BYOK: resolve each org's provider config; opts.router overrides (tests).
+    const router = opts.router ?? (await routerForOrg(handle, org.id));
     for (const w of due) {
       const res = await executeRun(
         handle,
@@ -221,7 +223,7 @@ export async function tick(
           triggerKind: w.triggerKind,
           triggerContext: w.triggerContext,
         },
-        opts.router,
+        router,
       );
       launched++;
       if (res.status !== "fulfilled") {

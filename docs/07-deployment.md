@@ -31,19 +31,30 @@ Everything below reflects what was actually run — not aspirational config.
 | `AIGTM_SESSION_TTL_HOURS` | `168` | Session lifetime; also the cookie `maxAge`. Sessions extend on use past half-life (sliding expiration). |
 | `ANTHROPIC_API_KEY` | unset | Registers the Anthropic provider. Never shipped to the client. |
 | `OPENAI_API_KEY` | unset | Registers the OpenAI provider. |
+| `AIGTM_MASTER_KEY` | dev fallback | Encrypts org BYOK keys (`organizations.provider_config`) with AES-256-GCM. **Set in production** — rotating it invalidates stored keys. |
 | `AIGTM_MODEL_<ROLE>` | `mock` | Per-role provider routing. `<ROLE>` ∈ `REASONING` `FAST` `WRITING` `JAPANESE`; value = provider name (`mock`/`anthropic`/`openai`). Prefs naming an unregistered provider are ignored. |
 | `AIGTM_ANTHROPIC_MODEL_<ROLE>` / `AIGTM_OPENAI_MODEL_<ROLE>` | per-provider defaults | Override the concrete model id per role. |
 | `AIGTM_WORKER_INTERVAL_MS` | `15000` | Scheduler poll interval for the trigger worker. |
 | `AIGTM_RUN_COST_LIMIT_CENTS` | `0` (unlimited) | Per-run spend brake. A run that would cross the ceiling is rejected before its next LLM step; partial spend is recorded on `runs.cost_cents`. |
 | `AIGTM_E2E` (internal) | — | Set by Playwright's webServer env via `DATABASE_URL=pglite://./.pglite-e2e`. |
 
-### Model providers
+### Model providers (BYOK)
 
-`defaultRouter()` (used by server actions and the worker) registers
-`AnthropicProvider`/`OpenAIProvider` only when the matching `*_API_KEY` is
-present, then applies `AIGTM_MODEL_<ROLE>` routing. With no keys, every role
-falls back to `MockProvider` — deterministic and fully offline. LLM step
-prompts may be inline strings or repo-relative paths (`prompts/*.md`).
+Two layers, org key wins over env:
+
+- **`/settings` (admin)** — paste an OpenAI/Anthropic key per org; stored
+  AES-256-GCM encrypted in `organizations.provider_config`, shown only
+  masked. The same screen routes each role (`reasoning`/`fast`/`writing`/
+  `japanese`) to a provider or a concrete model (`openai:gpt-4.1-mini`, …).
+- **Env fallback** — `OPENAI_API_KEY`/`ANTHROPIC_API_KEY` register providers
+  deployment-wide; `AIGTM_MODEL_<ROLE>` routes, `AIGTM_<PROVIDER>_MODEL_<ROLE>`
+  overrides the concrete model.
+
+`routerForOrg(handle, orgId)` resolves both layers per run — the worker calls
+it per org, so one deployment serves tenants on different providers. With no
+keys at all every role falls back to `MockProvider` — deterministic and fully
+offline. LLM step prompts may be inline strings or repo-relative paths
+(`prompts/*.md`).
 
 ### Trigger worker
 

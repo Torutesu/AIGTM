@@ -11,9 +11,15 @@ import {
   decideApproval,
   retryableAgentId,
   cancelRun,
-  defaultRouter,
+  routerForOrg,
 } from "@aigtm/agent-runtime";
-import { schema, withOrg, audit } from "@aigtm/db";
+import {
+  schema,
+  withOrg,
+  audit,
+  encryptSecret,
+  type OrgProviderConfig,
+} from "@aigtm/db";
 import { ensureDb } from "./db";
 import {
   SESSION_COOKIE,
@@ -258,7 +264,7 @@ export async function runAgentAction(locale: string, formData: FormData) {
     handle,
     { orgId: session.orgId, userId: session.userId },
     { agentId, triggerKind: "manual" },
-    defaultRouter(),
+    await routerForOrg(handle, session.orgId),
   );
   await flash("runStarted");
   revalidatePath(`/${locale}/agents`);
@@ -299,7 +305,7 @@ export async function retryRunAction(locale: string, formData: FormData) {
     agentId,
     triggerKind: "manual",
     triggerContext: { retriedFrom: runId },
-  }, defaultRouter());
+  }, await routerForOrg(handle, session.orgId));
   await flash("retried");
   revalidatePath(`/${locale}/agents`);
   redirect(`/${locale}/runs/${result.runId}`);
@@ -435,4 +441,122 @@ export async function deleteSegmentAction(locale: string, formData: FormData) {
   );
   await flash("segmentDeleted");
   revalidatePath(`/${locale}/segments`);
+}
+
+/* ---------- BYOK: org provider keys + model routing ---------- */
+
+const PROVIDER_IDS = ["openai", "anthropic"] as const;
+type ProviderId = (typeof PROVIDER_IDS)[number];
+
+const MODEL_ROLES = ["reasoning", "fast", "writing", "japanese"] as const;
+
+/** Values the routing UI may submit; "provider" or "provider:model". */
+const ROUTE_VALUES = new Set([
+  "mock",
+  "openai",
+  "openai:gpt-4.1",
+  "openai:gpt-4.1-mini",
+  "anthropic",
+  "anthropic:claude-sonnet-4-5",
+  "anthropic:claude-haiku-4-5",
+  "anthropic:claude-opus-4-5",
+]);
+
+async function readProviderConfig(
+  handle: Awaited<ReturnType<typeof ensureDb>>,
+  orgId: string,
+): Promise<OrgProviderConfig> {
+  const [org] = await handle.db
+    .select({ providerConfig: schema.organizations.providerConfig })
+    .from(schema.organizations)
+    .where(eq(schema.organizations.id, orgId))
+    .limit(1);
+  return org?.providerConfig ?? {};
+}
+
+async function writeProviderConfig(
+  handle: Awaited<ReturnType<typeof ensureDb>>,
+  orgId: string,
+  cfg: OrgProviderConfig,
+) {
+  await handle.db
+    .update(schema.organizations)
+    .set({ providerConfig: cfg })
+    .where(eq(schema.organizations.id, orgId));
+}
+
+export async function saveProviderKeyAction(locale: string, formData: FormData) {
+  const handle = await ensureDb();
+  const session = await currentSession();
+  if (!session) redirect(`/${locale}/login`);
+  requireAdmin(session);
+  const provider = String(formData.get("provider") ?? "") as ProviderId;
+  if (!PROVIDER_IDS.includes(provider)) throw new Error(`invalid provider: ${provider}`);
+  const key = String(formData.get("key") ?? "").trim();
+  if (!key) throw new Error("key is empty");
+
+  const cfg = await readProviderConfig(handle, session.orgId);
+  cfg.keys = { ...cfg.keys, [provider]: encryptSecret(key) };
+  await writeProviderConfig(handle, session.orgId, cfg);
+  await withOrg(handle, { orgId: session.orgId, userId: session.userId }, (tx) =>
+    audit(tx, { orgId: session.orgId, userId: session.userId }, {
+      action: "provider.key_saved",
+      entityType: "organization",
+      entityId: session.orgId,
+      detail: { provider },
+    }),
+  );
+  await flash("keySaved");
+  revalidatePath(`/${locale}/settings`);
+}
+
+export async function removeProviderKeyAction(locale: string, formData: FormData) {
+  const handle = await ensureDb();
+  const session = await currentSession();
+  if (!session) redirect(`/${locale}/login`);
+  requireAdmin(session);
+  const provider = String(formData.get("provider") ?? "") as ProviderId;
+  if (!PROVIDER_IDS.includes(provider)) throw new Error(`invalid provider: ${provider}`);
+
+  const cfg = await readProviderConfig(handle, session.orgId);
+  if (cfg.keys) delete cfg.keys[provider];
+  await writeProviderConfig(handle, session.orgId, cfg);
+  await withOrg(handle, { orgId: session.orgId, userId: session.userId }, (tx) =>
+    audit(tx, { orgId: session.orgId, userId: session.userId }, {
+      action: "provider.key_removed",
+      entityType: "organization",
+      entityId: session.orgId,
+      detail: { provider },
+    }),
+  );
+  await flash("keyRemoved");
+  revalidatePath(`/${locale}/settings`);
+}
+
+export async function saveRoutingAction(locale: string, formData: FormData) {
+  const handle = await ensureDb();
+  const session = await currentSession();
+  if (!session) redirect(`/${locale}/login`);
+  requireAdmin(session);
+
+  const cfg = await readProviderConfig(handle, session.orgId);
+  const roles: OrgProviderConfig["roles"] = {};
+  for (const role of MODEL_ROLES) {
+    const v = String(formData.get(`role_${role}`) ?? "");
+    if (v && !ROUTE_VALUES.has(v)) throw new Error(`invalid route: ${v}`);
+    // "" = inherit env/mock; only store explicit choices
+    if (v) roles[role] = v;
+  }
+  cfg.roles = roles;
+  await writeProviderConfig(handle, session.orgId, cfg);
+  await withOrg(handle, { orgId: session.orgId, userId: session.userId }, (tx) =>
+    audit(tx, { orgId: session.orgId, userId: session.userId }, {
+      action: "provider.routing_saved",
+      entityType: "organization",
+      entityId: session.orgId,
+      detail: { roles },
+    }),
+  );
+  await flash("routingSaved");
+  revalidatePath(`/${locale}/settings`);
 }

@@ -175,7 +175,22 @@
     "remove": "削除",
     "removeConfirm": "ワークスペースから削除しますか？",
     "rolesNote": "admin はメンバーと設定を管理します。editor はエージェント実行と承認が可能です。viewer は閲覧のみです。",
-    "adminOnly": "ワークスペース設定は admin のみ閲覧できます。"
+    "adminOnly": "ワークスペース設定は admin のみ閲覧できます。",
+    "providers": "モデルプロバイダ",
+    "providersNote": "BYOK（自前のAPIキー）。キーは AES-256-GCM で暗号化保存され、再表示されません。未設定時は環境変数 OPENAI_API_KEY / ANTHROPIC_API_KEY が使われます。",
+    "apiKey": "APIキー",
+    "keyPlaceholder": "sk-…",
+    "configured": "設定済み",
+    "fromEnv": "環境変数経由",
+    "notSet": "未設定",
+    "removeKey": "削除",
+    "routing": "モデルルーティング",
+    "routingNote": "各モデルロールをプロバイダまたは特定モデルに割り当てます。ルートにはキーの設定が必要です。未設定は mock（決定的・オフライン）にフォールバックします。",
+    "routeDefault": "既定（env / mock）",
+    "roleReasoning": "reasoning（推論）",
+    "roleFast": "fast（高速）",
+    "roleWriting": "writing（文書生成）",
+    "roleJapanese": "japanese（日本語）"
   },
   "account": {
     "eyebrow": "Records / Account",
@@ -280,6 +295,9 @@
     "memberRemoved": "メンバーを削除しました",
     "roleChanged": "ロールを変更しました",
     "signedIn": "サインインしました",
-    "dismiss": "通知を閉じる"
+    "dismiss": "通知を閉じる",
+    "keySaved": "APIキーを保存しました",
+    "keyRemoved": "APIキーを削除しました",
+    "routingSaved": "モデルルーティングを保存しました"
   }
 }
