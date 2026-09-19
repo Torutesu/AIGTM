@@ -6,9 +6,10 @@ import {
   withOrg,
   schema,
   seed,
+  decryptField,
   type DbHandle,
 } from "@aigtm/db";
-import { syncConversations, MockGmailConnector } from "./index";
+import { syncConversations, MockGmailConnector, ingestMessages } from "./index";
 
 let handle: DbHandle;
 let orgId: string;
@@ -44,6 +45,29 @@ describe("mock connector sync", () => {
   it("is idempotent (no duplicate conversations)", async () => {
     const res = await syncConversations(handle, { orgId, userId });
     expect(res.inserted).toBe(0);
+  });
+
+  it("encrypts conversation summaries at rest, decryptField reads them", async () => {
+    await ingestMessages(handle, { orgId, userId }, [
+      {
+        externalId: "test:enc-1",
+        channel: "email",
+        subject: "Secret pricing thread",
+        from: "buyer@nordic-systems.example",
+        to: ["sales@aigtm.local"],
+        body: "They offered 40k EUR for enterprise tier",
+        occurredAt: new Date().toISOString(),
+      },
+    ]);
+    const rows = (await withOrg(handle, { orgId }, (tx) =>
+      tx
+        .select()
+        .from(schema.conversations)
+        .where(eq(schema.conversations.externalId, "test:enc-1")),
+    )) as { summary: string | null }[];
+    expect(rows[0].summary).toMatch(/^v1:/);
+    expect(rows[0].summary).not.toContain("40k EUR");
+    expect(decryptField(rows[0].summary)).toContain("40k EUR");
   });
 });
 

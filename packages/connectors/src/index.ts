@@ -1,5 +1,5 @@
 import { eq, and } from "drizzle-orm";
-import { schema, withOrg, type DbHandle, type OrgContext } from "@aigtm/db";
+import { schema, withOrg, encryptField, type DbHandle, type OrgContext } from "@aigtm/db";
 
 /**
  * Mock connectors. Phase 0 never touches external services — these return
@@ -100,7 +100,7 @@ export async function ingestMessages(
         externalId: m.externalId ?? null,
         subject: m.subject,
         participants: [m.from, ...(m.to ?? [])],
-        summary: m.body.slice(0, 500),
+        summary: encryptField(m.body.slice(0, 500)),
         occurredAt: m.occurredAt ? new Date(m.occurredAt) : new Date(),
       });
       inserted++;

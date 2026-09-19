@@ -3,7 +3,7 @@ import { useTranslations } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
 import { desc, eq, and, isNull } from "drizzle-orm";
 import { notFound } from "next/navigation";
-import { schema, withOrg } from "@aigtm/db";
+import { schema, withOrg, decryptField } from "@aigtm/db";
 import { ensureDb } from "../../../../../lib/db";
 import { requireSession } from "../../../../../lib/session";
 import { eraseAccountAction } from "../../../../../lib/actions";
@@ -105,6 +105,7 @@ export default async function AccountDetailPage({
         .from(schema.conversations)
         .where(eq(schema.conversations.accountId, id))
         .orderBy(desc(schema.conversations.occurredAt))) as ConvoRow[];
+      for (const c of convoRows) c.summary = decryptField(c.summary);
       const knowledgeRows = (await tx
         .select()
         .from(schema.knowledge)

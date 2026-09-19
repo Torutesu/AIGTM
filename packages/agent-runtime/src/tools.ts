@@ -1,5 +1,5 @@
 import { and, eq, lt, ne, desc, isNull, sql } from "drizzle-orm";
-import { schema } from "@aigtm/db";
+import { schema, decryptField } from "@aigtm/db";
 
 /**
  * Tool allowlist for agent steps. INVARIANT: tools are read-only or
@@ -61,12 +61,14 @@ export const tools: Record<string, ToolFn> = {
     ];
     if (input.accountId) clauses.push(eq(schema.conversations.accountId, String(input.accountId)));
     void cutoff;
-    return tx
+    const rows = (await tx
       .select()
       .from(schema.conversations)
       .where(and(...clauses))
       .orderBy(desc(schema.conversations.occurredAt))
-      .limit(50);
+      .limit(50)) as { summary: string | null }[];
+    // summary is encrypted at rest — hand the model plaintext
+    return rows.map((r) => ({ ...r, summary: decryptField(r.summary) }));
   },
 
   "people.for_account": async (tx, orgId, input) => {

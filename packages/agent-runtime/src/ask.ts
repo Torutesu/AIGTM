@@ -1,7 +1,7 @@
 import { and, desc, eq, gte, isNull, sql } from "drizzle-orm";
-import { schema, withOrg, audit, type DbHandle, type OrgContext } from "@aigtm/db";
+import { schema, withOrg, audit, decryptField, type DbHandle, type OrgContext } from "@aigtm/db";
 import type { AgentStep } from "@aigtm/specs";
-import { routerForOrg, estimateCostCents } from "./model";
+import { routerForOrg, estimateCostCents, type ModelRouter } from "./model";
 
 /**
  * Ask — grounded Q&A over the org's system of record. Retrieval gathers a
@@ -50,10 +50,42 @@ interface SourceItem {
   detail: string;
 }
 
+const CONTEXT_LIMIT = 45;
+
+/**
+ * Rank sources by term overlap with the question. A full-snapshot dump would
+ * blow the context window once an org has real volume, so we send the top
+ * slice — the model only ever sees what it can cite.
+ */
+export function rankSources(
+  question: string,
+  sources: SourceItem[],
+  limit = CONTEXT_LIMIT,
+): SourceItem[] {
+  const terms = [
+    ...new Set(
+      question
+        .toLowerCase()
+        .split(/[^\p{L}\p{N}]+/u)
+        .filter((t) => t.length >= 2),
+    ),
+  ];
+  if (sources.length <= limit) return sources;
+  const scored = sources.map((s, i) => {
+    const hay = `${s.label} ${s.detail}`.toLowerCase();
+    let score = 0;
+    for (const t of terms) if (hay.includes(t)) score += 1;
+    return { s, score, i };
+  });
+  scored.sort((a, b) => b.score - a.score || a.i - b.i);
+  return scored.slice(0, limit).map((x) => x.s);
+}
+
 export async function askOrg(
   handle: DbHandle,
   ctx: OrgContext,
   question: string,
+  router?: ModelRouter,
 ): Promise<AskResult> {
   // Monthly budget gate — identical rule as agent runs.
   const monthStart = new Date();
@@ -181,7 +213,7 @@ export async function askOrg(
         label: c.subject ?? c.channel,
         href: c.accountId ? `/accounts/${c.accountId}` : "/inbox",
         detail: `${c.channel} "${c.subject ?? "(no subject)"}" with ${accountName.get(c.accountId ?? "") ?? "?"} ` +
-          `on ${c.occurredAt?.toISOString().slice(0, 10) ?? "?"}: ${(c.summary ?? "").slice(0, 300)}`,
+          `on ${c.occurredAt?.toISOString().slice(0, 10) ?? "?"}: ${(decryptField(c.summary) ?? "").slice(0, 300)}`,
       });
     }
 
@@ -206,12 +238,15 @@ export async function askOrg(
     return items;
   });
 
-  const router = await routerForOrg(handle, ctx.orgId);
-  const byRef = new Map(sources.map((s) => [s.ref, s]));
-  const res = await router.complete(
+  const model = router ?? (await routerForOrg(handle, ctx.orgId));
+  const selected = rankSources(question, sources);
+  // Only refs actually shown to the model may be cited — anything else is
+  // dropped, so a hallucinated ref can never reach the UI.
+  const byRef = new Map(selected.map((s) => [s.ref, s]));
+  const res = await model.complete(
     { ...ASK_STEP, prompt: `${ASK_STEP.prompt}\n\nQuestion: ${question}` },
     {
-      sources: sources.map((s) => ({ ref: s.ref, detail: s.detail })),
+      sources: selected.map((s) => ({ ref: s.ref, detail: s.detail })),
     },
   );
 
@@ -236,6 +271,7 @@ export async function askOrg(
         tokensOut: res.tokensOut,
         costCents,
         sourcesConsidered: sources.length,
+        sourcesSent: selected.length,
       },
     }),
   );

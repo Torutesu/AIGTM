@@ -7,6 +7,8 @@ export { TENANT_TABLES } from "./rls";
 export {
   encryptSecret,
   decryptSecret,
+  encryptField,
+  decryptField,
   maskSecret,
   newIngestKey,
   hashSecret,

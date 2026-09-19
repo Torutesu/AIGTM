@@ -55,6 +55,22 @@ export function decryptSecret(payload: string | null | undefined): string | null
   }
 }
 
+/**
+ * Field-level encryption for record text (conversation summaries etc.).
+ * Transparent mixed-mode read: ciphertext ("v1:") is decrypted, legacy
+ * plaintext passes through, corruption yields null rather than garbage.
+ */
+export function encryptField(plain: string | null | undefined): string | null {
+  if (!plain) return null;
+  return encryptSecret(plain);
+}
+
+export function decryptField(payload: string | null | undefined): string | null {
+  if (!payload) return null;
+  if (!payload.startsWith("v1:")) return payload;
+  return decryptSecret(payload);
+}
+
 /** Display form for a stored secret: "sk-…wxyz". Never logs the value. */
 export function maskSecret(plain: string): string {
   if (plain.length <= 8) return "…";

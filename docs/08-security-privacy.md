@@ -59,6 +59,10 @@ nothing pretends to have sent.
 - No secret is ever logged; API keys are shown once (ingest) or masked.
 - Provider keys can also come from env (`OPENAI_API_KEY`, …) — org-stored
   keys take precedence per tenant.
+- Conversation `summary` is field-level encrypted (AES-256-GCM, `v1:`
+  ciphertext) on every write path (webhook ingest + connectors); readers
+  decrypt transparently and legacy plaintext rows still read. `subject`
+  stays plaintext — it is the dedup key.
 
 ## Availability & integrity
 
@@ -87,8 +91,8 @@ nothing pretends to have sent.
   watermark is durable in `worker_state`; a crash between POST and
   watermark write re-sends the batch).
 - Rate limits are per-instance (multiplied by replica count).
-- No field-level encryption for conversation content — relies on Postgres
-  at-rest encryption (volume/TDE) from your provider.
+- Conversation `subject` and `participants` are plaintext (dedup/search
+  keys); only `summary` is field-encrypted.
 - GDPR erasure anonymizes/tombstones records (name/email/role nulled,
   `[erased]` marker, participants scrubbed) — hard deletes are unsafe
   under the FK graph. Conversation bodies/summaries are not rewritten.
