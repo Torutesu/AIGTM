@@ -12,6 +12,7 @@ import {
   retryableAgentId,
   cancelRun,
   routerForOrg,
+  askOrg,
 } from "@aigtm/agent-runtime";
 import {
   schema,
@@ -740,4 +741,18 @@ export async function eraseAccountAction(locale: string, formData: FormData) {
   revalidatePath(`/${locale}/accounts`);
   revalidatePath(`/${locale}/contacts`);
   revalidatePath(`/${locale}/deals`);
+}
+
+export async function askAction(locale: string, question: string) {
+  const session = await currentSession();
+  if (!session) redirect(`/${locale}/login`);
+  const q = question.trim().slice(0, 2000);
+  if (!q) return { ok: false };
+  const handle = await ensureDb();
+  return askOrg(handle, {
+    orgId: session.orgId,
+    userId: session.userId,
+    actorType: "user",
+    actorId: session.userId,
+  }, q);
 }

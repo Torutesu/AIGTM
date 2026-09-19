@@ -1,4 +1,4 @@
-import { and, eq, lt, ne, desc, isNull } from "drizzle-orm";
+import { and, eq, lt, ne, desc, isNull, sql } from "drizzle-orm";
 import { schema } from "@aigtm/db";
 
 /**
@@ -106,5 +106,53 @@ export const tools: Record<string, ToolFn> = {
       .where(eq(schema.signalEvents.orgId, orgId))
       .orderBy(desc(schema.signalEvents.detectedAt))
       .limit(50);
+  },
+
+  // Segments are the org's saved audience filters — this is how they stop
+  // being write-only CRUD: agent specs call `segments.members` to scope
+  // their target list (e.g. outbound only to the "high-fit" segment).
+  "segments.members": async (tx, orgId, input) => {
+    if (!input.segment) throw new Error("segments.members requires segment (id or name)");
+    const seg = String(input.segment);
+    const [segment] = await tx
+      .select()
+      .from(schema.segments)
+      .where(
+        and(
+          eq(schema.segments.orgId, orgId),
+          // id is a uuid — match by name when the input isn't one
+          sql`${schema.segments.id}::text = ${seg} OR ${schema.segments.name} = ${seg}`,
+        ),
+      )
+      .limit(1);
+    if (!segment) throw new Error(`segment not found: ${seg}`);
+    const filter = (segment.filter ?? {}) as {
+      minScore?: number;
+      stage?: string;
+      industry?: string;
+    };
+    const accounts = (await tx
+      .select()
+      .from(schema.accounts)
+      .where(eq(schema.accounts.orgId, orgId))) as {
+      id: string;
+      name: string;
+      icpFitScore: string | null;
+      stage: string;
+      industry: string | null;
+    }[];
+    const limit = Math.min(Math.max(Number(input.limit ?? 50), 1), 100);
+    return accounts
+      .filter(
+        (a) =>
+          (filter.minScore == null ||
+            Number(a.icpFitScore ?? 0) >= filter.minScore) &&
+          (!filter.stage || a.stage === filter.stage) &&
+          (!filter.industry ||
+            (a.industry ?? "")
+              .toLowerCase()
+              .includes(filter.industry.toLowerCase())),
+      )
+      .slice(0, limit);
   },
 };

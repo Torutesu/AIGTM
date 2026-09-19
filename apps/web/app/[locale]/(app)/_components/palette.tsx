@@ -51,6 +51,7 @@ export function CommandPalette({ role }: { role?: string }) {
     () =>
       [
         { key: "inbox", href: "/inbox" },
+        { key: "ask", href: "/ask" },
         { key: "approvals", href: "/approvals" },
         { key: "agents", href: "/agents" },
         { key: "accounts", href: "/accounts" },

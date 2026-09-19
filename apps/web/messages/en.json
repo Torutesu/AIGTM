@@ -20,7 +20,8 @@
     "search": "Search or jump to",
     "menu": "Menu",
     "close": "Close",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "ask": "Ask"
   },
   "auth": {
     "signIn": "Sign in",
@@ -342,5 +343,20 @@
     "personErased": "Contact erased",
     "accountErased": "Account erased"
   },
-  "flash": {}
+  "flash": {},
+  "ask": {
+    "eyebrow": "Intelligence",
+    "title": "Ask",
+    "meta": "grounded answers over your GTM data",
+    "placeholder": "Ask about accounts, deals, signals…",
+    "send": "Send",
+    "thinking": "Reading your workspace…",
+    "empty": "Ask anything about your pipeline",
+    "emptyHint": "Answers are grounded in your accounts, deals, conversations and signals — sources are cited.",
+    "sources": "Sources",
+    "noAnswer": "The data in your workspace cannot answer this yet.",
+    "error": "Something went wrong. Try again.",
+    "budgetExceeded": "Monthly AI budget reached. Raise it in Settings to keep using Ask.",
+    "mockModel": "mock model — configure a provider in Settings"
+  }
 }

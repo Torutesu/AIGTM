@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { Link, usePathname } from "../../../../i18n/routing";
 import {
   InboxIcon,
+  ChatIcon,
   BotIcon,
   ShieldCheckIcon,
   FileTextIcon,
@@ -30,6 +31,7 @@ const groups: {
     key: "workspace",
     items: [
       { href: "/inbox", key: "inbox", icon: InboxIcon },
+      { href: "/ask", key: "ask", icon: ChatIcon },
       { href: "/approvals", key: "approvals", icon: ShieldCheckIcon },
       { href: "/agents", key: "agents", icon: BotIcon },
     ],

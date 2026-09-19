@@ -16,6 +16,13 @@ steps:
     tool: signal_events.recent
     output:
       events: array
+  - id: segment
+    kind: tool
+    tool: segments.members
+    input:
+      segment: "High-fit prospects"
+    output:
+      members: array
   - id: summarize
     kind: llm
     model: writing

@@ -20,7 +20,8 @@
     "search": "検索 / 移動",
     "menu": "メニュー",
     "close": "閉じる",
-    "signOut": "サインアウト"
+    "signOut": "サインアウト",
+    "ask": "質問"
   },
   "auth": {
     "signIn": "サインイン",
@@ -342,5 +343,20 @@
     "personErased": "連絡先を消去しました",
     "accountErased": "アカウントを消去しました"
   },
-  "flash": {}
+  "flash": {},
+  "ask": {
+    "eyebrow": "インテリジェンス",
+    "title": "Ask",
+    "meta": "GTMデータを根拠にした回答",
+    "placeholder": "アカウント・商談・シグナルについて質問…",
+    "send": "送信",
+    "thinking": "ワークスペースを読んでいます…",
+    "empty": "パイプラインについて何でも聞けます",
+    "emptyHint": "回答はアカウント・商談・会話・シグナルに基づき、根拠が引用されます。",
+    "sources": "根拠",
+    "noAnswer": "ワークスペースのデータではまだ回答できません。",
+    "error": "エラーが発生しました。もう一度お試しください。",
+    "budgetExceeded": "月次AI予算に達しました。Settingsで引き上げてください。",
+    "mockModel": "mockモデル — Settingsでプロバイダを設定してください"
+  }
 }

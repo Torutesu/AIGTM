@@ -9,6 +9,7 @@ import { test, expect, type Page } from "@playwright/test";
 
 const APP_PAGES = [
   "inbox",
+  "ask",
   "approvals",
   "agents",
   "accounts",

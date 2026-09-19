@@ -332,6 +332,22 @@ test("run detail shows stats strip and step latencies", async ({ page }) => {
   await expect(page.getByText("Duration").first()).toBeVisible();
 });
 
+test("ask answers a question and writes an audit event", async ({ page }) => {
+  await page.goto("/en/ask");
+  await expect(page.getByRole("heading", { name: "Ask" })).toBeVisible();
+  await page
+    .getByPlaceholder(/Ask about accounts/i)
+    .fill("Which accounts are at risk?");
+  await page.getByRole("button", { name: "Send" }).click();
+  // mock provider echoes "[mock] ask.answer"; real path is retrieval→model→audit
+  await expect(page.getByText(/mock.*ask\.answer/i)).toBeVisible({
+    timeout: 15000,
+  });
+  await expect(page.getByText(/mock model/i)).toBeVisible();
+  await page.goto("/en/audit");
+  await expect(page.getByText("ask.answered").first()).toBeVisible();
+});
+
 test("audit page lists recent events", async ({ page }) => {
   await page.goto("/en/audit");
   await expect(page.getByText(/run\.(started|completed)|approval\./).first()).toBeVisible();
