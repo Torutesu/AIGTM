@@ -5,6 +5,7 @@ import {
   type DbHandle,
   type OrgProviderConfig,
 } from "@aigtm/db";
+import { fetchWithTimeout } from "@aigtm/db";
 import { ingestMessages, type RawMessage } from "./index";
 
 export interface GoogleCreds {
@@ -14,7 +15,7 @@ export interface GoogleCreds {
 }
 
 async function googleAccessToken(c: GoogleCreds): Promise<string> {
-  const res = await fetch("https://oauth2.googleapis.com/token", {
+  const res = await fetchWithTimeout("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
@@ -23,7 +24,7 @@ async function googleAccessToken(c: GoogleCreds): Promise<string> {
       refresh_token: c.refreshToken,
       grant_type: "refresh_token",
     }),
-  });
+  }, 15_000);
   if (!res.ok) {
     throw new Error(`google token refresh ${res.status}: ${(await res.text()).slice(0, 200)}`);
   }
@@ -41,9 +42,10 @@ export async function fetchGmailMessages(
   const days = opts.days ?? 2;
   const max = opts.max ?? 25;
   const q = encodeURIComponent(`newer_than:${days}d -in:chats`);
-  const list = await fetch(
+  const list = await fetchWithTimeout(
     `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${q}&maxResults=${max}`,
     { headers: { Authorization: `Bearer ${token}` } },
+    20_000,
   );
   if (!list.ok) throw new Error(`gmail list ${list.status}`);
   const { messages = [] } = (await list.json()) as {
@@ -52,10 +54,11 @@ export async function fetchGmailMessages(
 
   const out: RawMessage[] = [];
   for (const m of messages) {
-    const r = await fetch(
+    const r = await fetchWithTimeout(
       `https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=metadata` +
         `&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Date`,
       { headers: { Authorization: `Bearer ${token}` } },
+      20_000,
     );
     if (!r.ok) continue;
     const meta = (await r.json()) as {
@@ -90,11 +93,12 @@ export async function fetchCalendarEvents(
   const days = opts.days ?? 1;
   const max = opts.max ?? 25;
   const timeMin = new Date(Date.now() - days * 86_400_000).toISOString();
-  const res = await fetch(
+  const res = await fetchWithTimeout(
     `https://www.googleapis.com/calendar/v3/calendars/primary/events` +
       `?timeMin=${encodeURIComponent(timeMin)}&maxResults=${max}` +
       `&singleEvents=true&orderBy=startTime`,
     { headers: { Authorization: `Bearer ${token}` } },
+    20_000,
   );
   if (!res.ok) throw new Error(`calendar list ${res.status}`);
   const { items = [] } = (await res.json()) as {

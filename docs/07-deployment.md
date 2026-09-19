@@ -40,6 +40,7 @@ Everything below reflects what was actually run — not aspirational config.
 | `AIGTM_RESEND_API_KEY` | unset | Resend API key. Required when `AIGTM_EMAIL_PROVIDER=resend`. |
 | `AIGTM_EMAIL_FROM` | unset | Verified Resend sender address (`AIGTM <ops@yourdomain>`). Required when resend is on. |
 | `AIGTM_EVAL_LLM_JUDGE` | unset | `1` enables the LLM-judge eval: a cheap-model critique of each run's output is appended to `runs.eval_notes` (judge cost counted in `cost_cents`). |
+| `AIGTM_INGEST_RATE_LIMIT` | `120` | Per-key requests/minute cap on `POST /api/ingest` (per instance). Bodies over 256KB are rejected with 413. |
 | `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` | unset | Google SSO. When both are set the login page shows "Sign in with Google". Create an OAuth client (type: web) in Google Cloud Console. |
 | `AIGTM_BASE_URL` | `http://localhost:3000` | Public origin used to build the OAuth redirect URI (`$AIGTM_BASE_URL/api/auth/google/callback`). Register that exact URI in the Google client. |
 | `AIGTM_E2E` (internal) | — | Set by Playwright's webServer env via `DATABASE_URL=pglite://./.pglite-e2e`. |
@@ -128,6 +129,21 @@ Set `GOOGLE_OAUTH_CLIENT_ID`/`GOOGLE_OAUTH_CLIENT_SECRET` and register
 Existing users sign in by email match; new users are provisioned into the
 org only when exactly one org exists (multi-org deployments reject with
 `sso_no_org` — no arbitrary tenant assignment).
+
+### Outbound HTTP policy
+
+Every external call goes through `fetchWithTimeout` / `fetchWithRetry`
+(`@aigtm/db` / `@aigtm/agent-runtime`):
+
+- **LLM calls** (OpenAI/Anthropic): 90s timeout, 3 attempts with
+  exponential backoff + jitter; retries on 408/409/425/429/5xx, network
+  errors and timeouts; honors `Retry-After`.
+- **Dispatch** (Resend, Slack/action webhooks): 15–20s timeout, 2 attempts;
+  the outbox sweep adds outer retries (max 5).
+- **Google APIs + OAuth exchanges**: 15–20s timeout, no inner retry
+  (the worker's 5-min sync cadence is the retry).
+
+A hung provider can never stall the worker tick indefinitely.
 
 ### Trigger worker
 

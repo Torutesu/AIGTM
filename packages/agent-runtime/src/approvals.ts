@@ -1,3 +1,4 @@
+import { fetchWithRetry } from "./http";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import {
   schema,
@@ -75,11 +76,11 @@ function slackText(payload: Record<string, any>): string {
 }
 
 async function postToSlack(webhookUrl: string, payload: Record<string, any>) {
-  const res = await fetch(webhookUrl, {
+  const res = await fetchWithRetry(webhookUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text: slackText(payload).slice(0, 3900) }),
-  });
+  }, { timeoutMs: 15_000, attempts: 2 });
   if (!res.ok) {
     const msg = (await res.text()).slice(0, 300);
     throw new Error(`slack webhook ${res.status}: ${msg}`);
@@ -88,11 +89,11 @@ async function postToSlack(webhookUrl: string, payload: Record<string, any>) {
 }
 
 async function postToActionWebhook(url: string, kind: string, orgId: string, payload: Record<string, any>) {
-  const res = await fetch(url, {
+  const res = await fetchWithRetry(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ kind, orgId, payload }),
-  });
+  }, { timeoutMs: 15_000, attempts: 2 });
   if (!res.ok) {
     const msg = (await res.text()).slice(0, 300);
     throw new Error(`action webhook ${res.status}: ${msg}`);
@@ -108,14 +109,14 @@ async function sendViaResend(payload: Record<string, any>) {
   const { to, subject, body } = emailFields(payload);
   if (!to) throw new Error("outbox payload has no resolvable recipient");
   if (!body) throw new Error("outbox payload has no body");
-  const res = await fetch("https://api.resend.com/emails", {
+  const res = await fetchWithRetry("https://api.resend.com/emails", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ from, to, subject, text: body }),
-  });
+  }, { timeoutMs: 20_000, attempts: 2 });
   if (!res.ok) {
     const msg = (await res.text()).slice(0, 300);
     throw new Error(`resend ${res.status}: ${msg}`);

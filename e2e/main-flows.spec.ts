@@ -549,3 +549,22 @@ test("viewer cannot start google connect", async ({ browser }) => {
   expect(res.headers()["location"]).toContain("gws_forbidden");
   await ctx2.close();
 });
+
+test("ingest rejects oversized payloads with 413", async ({ page }) => {
+  await page.goto("/en/settings");
+  await page.getByTestId("generate-ingest-key").click();
+  const key = await page.getByTestId("new-ingest-key").innerText();
+  const res = await page.request.post("/api/ingest", {
+    headers: {
+      authorization: `Bearer ${key}`,
+      "content-type": "application/json",
+    },
+    data: {
+      type: "message",
+      channel: "email",
+      from: "x@y.example",
+      body: "x".repeat(300_000),
+    },
+  });
+  expect(res.status()).toBe(413);
+});

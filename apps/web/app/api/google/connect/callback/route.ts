@@ -11,6 +11,7 @@ import {
 import { ensureDb } from "../../../../../lib/db";
 import { currentSession } from "../../../../../lib/session";
 import { GWS_STATE_COOKIE, gwsBaseUrl } from "../../../../../lib/google-connect";
+import { fetchWithTimeout } from "@aigtm/db";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +39,7 @@ export async function GET(req: Request) {
   const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID!;
   const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET!;
 
-  const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+  const tokenRes = await fetchWithTimeout("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
@@ -48,7 +49,7 @@ export async function GET(req: Request) {
       redirect_uri: `${gwsBaseUrl()}/api/google/connect/callback`,
       grant_type: "authorization_code",
     }),
-  });
+  }, 15_000);
   if (!tokenRes.ok) redirect("/en/settings?error=gws_exchange");
   const tokens = (await tokenRes.json()) as {
     access_token?: string;

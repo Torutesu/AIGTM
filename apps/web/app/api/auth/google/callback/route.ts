@@ -4,6 +4,7 @@ import { ssoSignIn } from "@aigtm/auth";
 import { ensureDb } from "../../../../../lib/db";
 import { setSessionCookie } from "../../../../../lib/session";
 import { flash } from "../../../../../lib/toast";
+import { fetchWithTimeout } from "@aigtm/db";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,7 @@ export async function GET(req: Request) {
   const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID!;
   const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET!;
 
-  const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+  const tokenRes = await fetchWithTimeout("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
@@ -41,16 +42,17 @@ export async function GET(req: Request) {
       redirect_uri: `${baseUrl()}/api/auth/google/callback`,
       grant_type: "authorization_code",
     }),
-  });
+  }, 15_000);
   if (!tokenRes.ok) redirect("/en/login?error=sso_exchange");
   const { access_token } = (await tokenRes.json()) as {
     access_token?: string;
   };
   if (!access_token) redirect("/en/login?error=sso_exchange");
 
-  const infoRes = await fetch(
+  const infoRes = await fetchWithTimeout(
     "https://openidconnect.googleapis.com/v1/userinfo",
     { headers: { Authorization: `Bearer ${access_token}` } },
+    15_000,
   );
   if (!infoRes.ok) redirect("/en/login?error=sso_userinfo");
   const info = (await infoRes.json()) as { email?: string; name?: string };

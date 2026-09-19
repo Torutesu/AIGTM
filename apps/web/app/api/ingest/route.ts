@@ -1,4 +1,5 @@
 import { ensureDb } from "../../../lib/db";
+import { createRateLimiter } from "../../../lib/rate-limit";
 import {
   schema,
   hashSecret,
@@ -17,6 +18,19 @@ import {
 export const dynamic = "force-dynamic";
 
 const CHANNELS = new Set(["email", "call", "meeting", "slack"]);
+
+/** Max JSON body — reject oversized payloads before parsing. */
+const MAX_BODY_BYTES = 256 * 1024;
+
+/**
+ * Per-key sliding-window rate limit (per instance — replicas each enforce
+ * their own window; the bearer key is still required). 120 req/min is far
+ * above legitimate webhook throughput and stops runaway senders.
+ */
+const limiter = createRateLimiter({
+  limit: Number(process.env.AIGTM_INGEST_RATE_LIMIT ?? 120),
+  windowMs: 60_000,
+});
 
 /**
  * POST /api/ingest — org-scoped webhook intake.
@@ -58,10 +72,24 @@ export async function POST(req: Request) {
   if (!org) {
     return Response.json({ error: "invalid key" }, { status: 401 });
   }
+  if (limiter.limited(hash)) {
+    return Response.json(
+      { error: "rate limit exceeded" },
+      { status: 429, headers: { "Retry-After": "60" } },
+    );
+  }
 
+  const declared = Number(req.headers.get("content-length") ?? 0);
+  if (declared > MAX_BODY_BYTES) {
+    return Response.json({ error: "payload too large" }, { status: 413 });
+  }
   let body: Record<string, unknown>;
   try {
-    body = (await req.json()) as Record<string, unknown>;
+    const raw = await req.text();
+    if (Buffer.byteLength(raw) > MAX_BODY_BYTES) {
+      return Response.json({ error: "payload too large" }, { status: 413 });
+    }
+    body = JSON.parse(raw) as Record<string, unknown>;
   } catch {
     return Response.json({ error: "invalid json" }, { status: 400 });
   }

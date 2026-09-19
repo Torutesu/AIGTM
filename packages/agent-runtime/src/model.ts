@@ -1,3 +1,4 @@
+import { fetchWithRetry } from "./http";
 import type { ModelRole, AgentStep } from "@aigtm/specs";
 import { eq } from "drizzle-orm";
 import {
@@ -202,7 +203,7 @@ export class AnthropicProvider extends HttpJsonProvider {
     return process.env[`AIGTM_ANTHROPIC_MODEL_${role.toUpperCase()}`] ?? defaults[role];
   }
   protected async call(prompt: string, model: string) {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    const res = await fetchWithRetry("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "x-api-key": this.key,
@@ -214,7 +215,7 @@ export class AnthropicProvider extends HttpJsonProvider {
         max_tokens: 2048,
         messages: [{ role: "user", content: prompt }],
       }),
-    });
+    }, { timeoutMs: 90_000, attempts: 3 });
     if (!res.ok) throw new Error(`anthropic ${res.status}: ${(await res.text()).slice(0, 300)}`);
     const data = (await res.json()) as {
       content: { type: string; text?: string }[];
@@ -248,7 +249,7 @@ export class OpenAIProvider extends HttpJsonProvider {
     return process.env[`AIGTM_OPENAI_MODEL_${role.toUpperCase()}`] ?? defaults[role];
   }
   protected async call(prompt: string, model: string) {
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    const res = await fetchWithRetry("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         authorization: `Bearer ${this.key}`,
@@ -259,7 +260,7 @@ export class OpenAIProvider extends HttpJsonProvider {
         response_format: { type: "json_object" },
         messages: [{ role: "user", content: prompt }],
       }),
-    });
+    }, { timeoutMs: 90_000, attempts: 3 });
     if (!res.ok) throw new Error(`openai ${res.status}: ${(await res.text()).slice(0, 300)}`);
     const data = (await res.json()) as {
       choices: { message: { content: string } }[];

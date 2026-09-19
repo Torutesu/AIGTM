@@ -11,6 +11,7 @@ export {
   newIngestKey,
   hashSecret,
 } from "./crypto";
+export { fetchWithTimeout, HttpTimeoutError } from "./http";
 
 /** Shape stored in organizations.provider_config (keys are ciphertext). */
 export interface OrgProviderConfig {
