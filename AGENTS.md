@@ -23,6 +23,9 @@ AI-native GTM OS を作る。ベンチマークは Frontrunner (usefr.com)。詳
 
 - `syncSpecs()`（agent-runtime/spec-sync）が `agents/*.yaml`・`signals/*.yaml` を全 org に upsert — worker 起動時・`ensureDb`・`pnpm db:sync`・`aigtm sync` で実行。yaml が正典、DB はレプリカ
 - `internal_sor` シグナルは worker tick で評価（`deal.last_activity_at` 系）。外部 source（job_boards 等）はコネクタ待ち — webhook `type: "event"`/`"signal_event"` が代替経路
-- Outbox dispatch は実装済み: `AIGTM_EMAIL_PROVIDER=resend` で email kind を実送信（失敗→`failed`→worker sweep が5回までリトライ）。未設定時は `dispatched` + audit `mock:true`（監査に残るので誤魔化さない）
+- Outbox dispatch は kind 別プロバイダ解決: email→`AIGTM_EMAIL_PROVIDER=resend`、`post_slack`/`crm_write`/`create_task`→Settings「Integrations」の org webhook（Slack incoming webhook / 汎用 webhook）。未設定時は `dispatched` + audit `mock:true`（監査に残るので誤魔化さない）。失敗→`failed`→worker sweep が5回までリトライ
 - run の tx abort（ツールの SQL エラー等）でも rejected run + audit が別 tx で残る。tick 内の1 run のクラッシュは他を巻き込まない
-- `evalScore` = 成功ステップ率（暫定の実測値。LLM-judge eval は未実装）
+- `evalScore` = 成功ステップ率（実測値）。`AIGTM_EVAL_LLM_JUDGE=1` で完成 run に LLM-judge 評価を `eval_notes` へ追記（judge コストも `cost_cents` に計上）
+- org 月次予算: `organizations.budget_monthly_cents`（Settings で設定）。当月 `runs.cost_cents` 合計が予算超過なら新規 LLM ステップ前に run を rejected
+- Google Workspace 取り込み: Settings「Integrations」に client id/secret + refresh token（gmail.readonly, calendar.readonly スコープ）を登録 → worker が5分スロットルで Gmail/Calendar → conversations に同期。失敗は org 単位で隔離
+- Google SSO: `GOOGLE_OAUTH_CLIENT_ID/SECRET` 設定時にログイン画面へボタン表示。`ssoSignIn` は既存ユーザー照合 → 新規は org が1つの時のみ自動プロビジョン（複数 org で曖昧なら `sso_no_org` で拒否 — 勝手にテナントを選ばない）

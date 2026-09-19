@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { eq } from "drizzle-orm";
 import { createDb, migrate, schema, type DbHandle } from "@aigtm/db";
-import { signUp, signIn, getSession, signOut, SignInLocked } from "./index";
+import { signUp, signIn, getSession, signOut, SignInLocked, ssoSignIn } from "./index";
 
 let handle: DbHandle;
 
@@ -72,5 +72,30 @@ describe("auth", () => {
       .set({ expiresAt: new Date(0) })
       .where(eq(schema.sessions.token, res!.token));
     expect(await getSession(handle, res!.token)).toBeNull();
+  });
+});
+
+describe("ssoSignIn", () => {
+  it("signs in an existing user by email", async () => {
+    const res = await ssoSignIn(handle, {
+      email: "a@b.com",
+      name: "A B",
+      provider: "google",
+    });
+    expect(res.token).toBeTruthy();
+    expect(res.session.email).toBe("a@b.com");
+    const session = await getSession(handle, res.token);
+    expect(session?.userId).toBe(res.session.userId);
+  });
+
+  it("refuses to provision a new user when multiple orgs exist", async () => {
+    // test db has ≥2 orgs from signUp/other tests — can't pick safely
+    await expect(
+      ssoSignIn(handle, {
+        email: "new-sso@example.com",
+        name: "New",
+        provider: "google",
+      }),
+    ).rejects.toThrowError("sso_no_org");
   });
 });

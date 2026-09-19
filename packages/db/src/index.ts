@@ -19,4 +19,23 @@ export interface OrgProviderConfig {
   roles?: Partial<Record<"reasoning" | "fast" | "writing" | "japanese", string>>;
   /** sha256 of the org's ingest key — compared against Bearer tokens. */
   ingestKeyHash?: string;
+  /** Slack incoming webhook URL (ciphertext) — post_slack dispatch target. */
+  slackWebhookUrl?: string;
+  /**
+   * Generic action webhook URL (ciphertext). Outbox kinds without a native
+   * provider (crm_write, create_task, …) POST {kind, payload} here — the
+   * production path for CRM writebacks via Zapier/n8n/custom endpoints.
+   */
+  actionWebhookUrl?: string;
+  /**
+   * Google Workspace connector (all ciphertext). OAuth desktop/web client
+   * with a refresh token covering gmail.readonly + calendar.readonly.
+   */
+  google?: {
+    clientId?: string;
+    clientSecret?: string;
+    refreshToken?: string;
+  };
+  /** RFC3339 — last successful connector sync (plaintext is fine). */
+  connectorsLastSyncAt?: string;
 }

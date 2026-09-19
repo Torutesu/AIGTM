@@ -20,6 +20,8 @@ const KEYS = new Set([
   "keyRemoved",
   "routingSaved",
   "ingestRevoked",
+  "integrationsSaved",
+  "budgetSaved",
 ]);
 
 /** Set a one-shot toast consumed by ToastHub on the next render. */

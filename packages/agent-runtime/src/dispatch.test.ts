@@ -6,7 +6,9 @@ import {
   withOrg,
   schema,
   seed,
+  encryptSecret,
   type DbHandle,
+  type OrgProviderConfig,
 } from "@aigtm/db";
 import { dispatchOutbox, dispatchPendingOutbox } from "./approvals";
 import { syncSpecs } from "./spec-sync";
@@ -337,5 +339,162 @@ describe("signal evaluator (internal_sor)", () => {
         .where(eq(schema.runs.agentId, agentId)),
     )) as { tc: Record<string, unknown> | null }[];
     expect(runs).toHaveLength(1); // only the matching event fired it
+  });
+});
+
+async function setOrgConfig(patch: Partial<OrgProviderConfig>) {
+  const [org] = (await handle.db
+    .select({ providerConfig: schema.organizations.providerConfig })
+    .from(schema.organizations)
+    .where(eq(schema.organizations.id, orgId))
+    .limit(1)) as { providerConfig: OrgProviderConfig | null }[];
+  await handle.db
+    .update(schema.organizations)
+    .set({ providerConfig: { ...(org?.providerConfig ?? {}), ...patch } })
+    .where(eq(schema.organizations.id, orgId));
+}
+
+describe("slack + action webhook dispatch", () => {
+  it("post_slack posts {text} to the org slack webhook", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(new Response("ok", { status: 200 })));
+    vi.stubGlobal("fetch", fetchMock);
+    await setOrgConfig({
+      slackWebhookUrl: encryptSecret("https://hooks.slack.com/services/T/B/x"),
+    });
+    try {
+      const id = await withOrg(handle, ctx(), async (tx) => {
+        const [ob] = await tx
+          .insert(schema.outbox)
+          .values({
+            orgId,
+            kind: "post_slack",
+            payload: { context: { summarize: { digest: "weekly digest body" } } },
+            status: "released",
+          })
+          .returning();
+        return ob.id;
+      });
+      await dispatchOutbox(handle, ctx(), id);
+      expect((await outboxRow(id)).status).toBe("dispatched");
+      const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+      expect(url).toBe("https://hooks.slack.com/services/T/B/x");
+      expect(JSON.parse(init.body as string).text).toBe("weekly digest body");
+      const audits = await auditActions(id);
+      expect(
+        audits.find((a) => a.action === "outbox.dispatched")?.detail,
+      ).toMatchObject({ provider: "slack" });
+    } finally {
+      vi.unstubAllGlobals();
+      await setOrgConfig({ slackWebhookUrl: undefined });
+    }
+  });
+
+  it("crm_write posts {kind, payload} to the org action webhook", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(new Response("{}", { status: 200 })));
+    vi.stubGlobal("fetch", fetchMock);
+    await setOrgConfig({
+      actionWebhookUrl: encryptSecret("https://hooks.zapier.com/x"),
+    });
+    try {
+      const id = await withOrg(handle, ctx(), async (tx) => {
+        const [ob] = await tx
+          .insert(schema.outbox)
+          .values({
+            orgId,
+            kind: "crm_write",
+            payload: { action: "crm_write", fields: { stage: "negotiation" } },
+            status: "released",
+          })
+          .returning();
+        return ob.id;
+      });
+      await dispatchOutbox(handle, ctx(), id);
+      expect((await outboxRow(id)).status).toBe("dispatched");
+      const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+      expect(url).toBe("https://hooks.zapier.com/x");
+      const sent = JSON.parse(init.body as string);
+      expect(sent.kind).toBe("crm_write");
+      expect(sent.payload.fields.stage).toBe("negotiation");
+    } finally {
+      vi.unstubAllGlobals();
+      await setOrgConfig({ actionWebhookUrl: undefined });
+    }
+  });
+
+  it("post_slack without configured webhook stays marked mock", async () => {
+    const id = await withOrg(handle, ctx(), async (tx) => {
+      const [ob] = await tx
+        .insert(schema.outbox)
+        .values({ orgId, kind: "post_slack", payload: {}, status: "released" })
+        .returning();
+      return ob.id;
+    });
+    await dispatchOutbox(handle, ctx(), id);
+    expect((await outboxRow(id)).status).toBe("dispatched");
+    const audits = await auditActions(id);
+    expect(
+      audits.find((a) => a.action === "outbox.dispatched")?.detail,
+    ).toMatchObject({ mock: true });
+  });
+});
+
+describe("org monthly budget", () => {
+  it("rejects new LLM steps once the month's spend crosses the org budget", async () => {
+    // set a tiny org budget and pre-load this month's spend above it
+    await handle.db
+      .update(schema.organizations)
+      .set({ budgetMonthlyCents: 50 })
+      .where(eq(schema.organizations.id, orgId));
+    const agent = await withOrg(handle, ctx(), async (tx) => {
+      const [a] = await tx
+        .insert(schema.agents)
+        .values({
+          orgId,
+          name: "Budget Probe",
+          spec: {
+            name: "Budget Probe",
+            trigger: { type: "manual" },
+            steps: [
+              {
+                id: "s1",
+                kind: "llm",
+                model: "reasoning",
+                prompt: "x",
+                input: {},
+                output: { y: "string" },
+              },
+            ],
+            approval: { before_act: "none" },
+          },
+        })
+        .returning();
+      // prior month spend already over budget
+      await tx.insert(schema.runs).values({
+        orgId,
+        agentId: a.id,
+        triggerKind: "manual",
+        status: "fulfilled",
+        costCents: "60",
+      });
+      return a;
+    });
+
+    const { executeRun } = await import("./runner");
+    const res = await executeRun(
+      handle,
+      ctx(),
+      { agentId: agent.id, triggerKind: "manual" },
+      new ModelRouter([new MockProvider()]),
+    );
+    expect(res.status).toBe("rejected");
+    expect(res.error).toContain("org monthly budget");
+    await handle.db
+      .update(schema.organizations)
+      .set({ budgetMonthlyCents: null })
+      .where(eq(schema.organizations.id, orgId));
   });
 });

@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, gte, sql } from "drizzle-orm";
 import {
   schema,
   withOrg,
@@ -91,6 +91,33 @@ export async function executeRun(
     const runStart = Date.now();
     const costLimit = runCostLimitCents();
 
+    // Org monthly budget: sum this month's run spend once; combined with
+    // in-run accumulation it stops the org from overshooting mid-run.
+    const monthStart = new Date();
+    monthStart.setUTCDate(1);
+    monthStart.setUTCHours(0, 0, 0, 0);
+    const [orgRow] = await tx
+      .select({ budget: schema.organizations.budgetMonthlyCents })
+      .from(schema.organizations)
+      .where(eq(schema.organizations.id, ctx.orgId))
+      .limit(1);
+    const orgBudget = orgRow?.budget ?? null;
+    let monthSpent = 0;
+    if (orgBudget != null && orgBudget > 0) {
+      const [s] = await tx
+        .select({
+          total: sql<string>`coalesce(sum(${schema.runs.costCents}), 0)`,
+        })
+        .from(schema.runs)
+        .where(
+          and(
+            eq(schema.runs.orgId, ctx.orgId),
+            gte(schema.runs.startedAt, monthStart),
+          ),
+        );
+      monthSpent = Number(s?.total ?? 0);
+    }
+
     // 3. steps
     try {
       for (const step of spec.steps) {
@@ -98,6 +125,15 @@ export async function executeRun(
           if (costLimit > 0 && costCents > costLimit) {
             throw new Error(
               `cost ceiling exceeded: ${costCents.toFixed(2)}¢ > ${costLimit}¢`,
+            );
+          }
+          if (
+            orgBudget != null &&
+            orgBudget > 0 &&
+            monthSpent + costCents > orgBudget
+          ) {
+            throw new Error(
+              `org monthly budget exceeded: ${(monthSpent + costCents).toFixed(0)}¢ > ${orgBudget}¢`,
             );
           }
           let output: unknown;
@@ -154,6 +190,51 @@ export async function executeRun(
             error: message,
           });
           throw err;
+        }
+      }
+
+      // 3b. optional LLM-judge eval (AIGTM_EVAL_LLM_JUDGE=1): a cheap model
+      // scores run quality 0-1 → evalScore. Ratio-of-steps remains the
+      // default; judge failures fall back to it silently.
+      let judgeScore: number | null = null;
+      if (process.env.AIGTM_EVAL_LLM_JUDGE === "1") {
+        try {
+          const jres = await router.complete(
+            {
+              id: "eval_judge",
+              kind: "llm",
+              model: "fast",
+              prompt:
+                `Score 0.0-1.0 how well this agent run achieved its goal.\n` +
+                `Goal: ${spec.description || spec.name}\n` +
+                `Step outputs (JSON): ${JSON.stringify(context.steps).slice(0, 4000)}\n` +
+                `Return ONLY the numeric score.`,
+              input: {},
+              output: { score: "string" },
+            },
+            context,
+          );
+          const s = Number.parseFloat(
+            String((jres.output as Record<string, unknown>).score ?? ""),
+          );
+          if (Number.isFinite(s)) judgeScore = Math.max(0, Math.min(1, s));
+          tokensIn += jres.tokensIn;
+          tokensOut += jres.tokensOut;
+          costCents += estimateCostCents(jres.model, jres.tokensIn, jres.tokensOut);
+          await tx.insert(schema.runSteps).values({
+            orgId: ctx.orgId,
+            runId: run.id,
+            stepId: "eval_judge",
+            kind: "llm",
+            model: jres.model,
+            output: { score: judgeScore },
+            tokensIn: jres.tokensIn,
+            tokensOut: jres.tokensOut,
+            latencyMs: jres.latencyMs,
+            status: "fulfilled",
+          });
+        } catch {
+          judgeScore = null; // keep ratio score
         }
       }
 
@@ -217,7 +298,9 @@ export async function executeRun(
           tokensIn,
           tokensOut,
           costCents: costCents.toFixed(4),
-          evalScore: (stepsDone / Math.max(spec.steps.length, 1)).toFixed(3),
+          evalScore: (
+            judgeScore ?? stepsDone / Math.max(spec.steps.length, 1)
+          ).toFixed(3),
         })
         .where(eq(schema.runs.id, run.id));
       await audit(tx, ctx, {

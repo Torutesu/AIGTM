@@ -39,6 +39,9 @@ Everything below reflects what was actually run — not aspirational config.
 | `AIGTM_EMAIL_PROVIDER` | unset | `resend` enables real outbound dispatch for email-kind outbox actions. Unset → dispatch is mock (state transition + `mock: true` audit only). |
 | `AIGTM_RESEND_API_KEY` | unset | Resend API key. Required when `AIGTM_EMAIL_PROVIDER=resend`. |
 | `AIGTM_EMAIL_FROM` | unset | Verified Resend sender address (`AIGTM <ops@yourdomain>`). Required when resend is on. |
+| `AIGTM_EVAL_LLM_JUDGE` | unset | `1` enables the LLM-judge eval: a cheap-model critique of each run's output is appended to `runs.eval_notes` (judge cost counted in `cost_cents`). |
+| `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` | unset | Google SSO. When both are set the login page shows "Sign in with Google". Create an OAuth client (type: web) in Google Cloud Console. |
+| `AIGTM_BASE_URL` | `http://localhost:3000` | Public origin used to build the OAuth redirect URI (`$AIGTM_BASE_URL/api/auth/google/callback`). Register that exact URI in the Google client. |
 | `AIGTM_E2E` (internal) | — | Set by Playwright's webServer env via `DATABASE_URL=pglite://./.pglite-e2e`. |
 
 ### Model providers (BYOK)
@@ -87,9 +90,36 @@ Approving an approval releases its outbox row; `dispatchOutbox` then delivers:
   `Name · email` / `Name <email>`). Success records the provider message id;
   failure sets status `failed` (bounded retries by the worker's outbox sweep,
   max 5 attempts).
-- **everything else** — transitions to `dispatched` with `mock: true` in the
-  audit trail until a connector lands. The approval gate itself is always
-  real regardless of provider configuration.
+- **`post_slack`** — posts `{text}` to the org's Slack incoming webhook
+  (Settings → Integrations). Payload text resolves from
+  `payload.message` → `payload.text` → `context.*` string values.
+- **`crm_write` / `create_task` / other kinds** — POST
+  `{kind, payload}` as JSON to the org's generic action webhook (Settings →
+  Integrations). Point it at Zapier/Make/n8n/your own endpoint to reach any
+  CRM or task system.
+- **unconfigured kinds** — transition to `dispatched` with `mock: true` in
+  the audit trail. The approval gate itself is always real regardless of
+  provider configuration.
+
+### Integrations (Settings → Integrations)
+
+Org-scoped, secrets encrypted with `AIGTM_MASTER_KEY` (AES-256-GCM):
+
+- **Slack webhook** — incoming-webhook URL for `post_slack` actions.
+- **Action webhook** — generic JSON endpoint for `crm_write`/`create_task`
+  and any other outbox kind.
+- **Google Workspace** — OAuth client id/secret + a refresh token with
+  `gmail.readonly` and `calendar.readonly` scopes. The worker syncs Gmail
+  threads and Calendar events into `conversations` every tick, throttled to
+  once per 5 minutes per org. Failures are logged per-org and isolated.
+
+### Google SSO
+
+Set `GOOGLE_OAUTH_CLIENT_ID`/`GOOGLE_OAUTH_CLIENT_SECRET` and register
+`$AIGTM_BASE_URL/api/auth/google/callback` as an authorized redirect URI.
+Existing users sign in by email match; new users are provisioned into the
+org only when exactly one org exists (multi-org deployments reject with
+`sso_no_org` — no arbitrary tenant assignment).
 
 ### Trigger worker
 

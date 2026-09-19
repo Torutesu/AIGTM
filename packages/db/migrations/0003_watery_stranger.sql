@@ -1,0 +1,1 @@
+ALTER TABLE "organizations" ADD COLUMN "budget_monthly_cents" integer;

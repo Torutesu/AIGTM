@@ -45,7 +45,11 @@ function LoginForm({ locale, error }: { locale: string; error?: string }) {
           </h2>
           {error && (
             <p className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">
-              {error === "locked" ? t("errorLocked") : t("errorInvalid")}
+              {error === "locked"
+                ? t("errorLocked")
+                : error?.startsWith("sso_")
+                  ? t("errorSso")
+                  : t("errorInvalid")}
             </p>
           )}
           <form action={signInAction.bind(null, locale)} className="flex flex-col gap-3">
@@ -65,6 +69,15 @@ function LoginForm({ locale, error }: { locale: string; error?: string }) {
               </SubmitButton>
             </div>
           </form>
+          {process.env.GOOGLE_OAUTH_CLIENT_ID ? (
+            <a
+              href="/api/auth/google"
+              data-testid="sso-google"
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-line px-4 py-2.5 font-mono text-[12px] tracking-[0.08em] text-ink-soft uppercase transition-colors hover:border-ink-faint"
+            >
+              {t("signInGoogle")}
+            </a>
+          ) : null}
         </section>
 
         <section className="mt-4 rounded-xl border border-dashed border-line bg-card/60 p-6">

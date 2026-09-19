@@ -7,5 +7,6 @@ case "${1:-web}" in
   migrate) exec pnpm --filter @aigtm/db migrate ;;
   seed)    exec pnpm --filter @aigtm/db seed ;;
   sync)    exec pnpm --filter @aigtm/agent-runtime sync-specs ;;
+  connectors) exec pnpm --filter @aigtm/connectors sync ;;
   *)       exec "$@" ;;
 esac

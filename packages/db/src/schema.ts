@@ -53,6 +53,12 @@ export const organizations = pgTable("organizations", {
    * keys are AES-256-GCM ciphertext (crypto.ts), never plaintext.
    */
   providerConfig: jsonb("provider_config"),
+  /**
+   * Org monthly AI budget in cents. 0/null = unlimited. The runner refuses
+   * new LLM steps once the month's run spend crosses it (org-level brake
+   * on top of the per-run AIGTM_RUN_COST_LIMIT_CENTS ceiling).
+   */
+  budgetMonthlyCents: integer("budget_monthly_cents"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 

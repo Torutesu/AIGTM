@@ -563,6 +563,101 @@ export async function saveRoutingAction(locale: string, formData: FormData) {
   revalidatePath(`/${locale}/settings`);
 }
 
+/* ---------- Integrations (slack/action webhook + google connector) ---------- */
+
+const INTEGRATION_FIELDS = [
+  "slackWebhookUrl",
+  "actionWebhookUrl",
+  "googleClientId",
+  "googleClientSecret",
+  "googleRefreshToken",
+] as const;
+type IntegrationField = (typeof INTEGRATION_FIELDS)[number];
+
+export async function saveIntegrationsAction(locale: string, formData: FormData) {
+  const handle = await ensureDb();
+  const session = await currentSession();
+  if (!session) redirect(`/${locale}/login`);
+  requireAdmin(session);
+
+  const cfg = await readProviderConfig(handle, session.orgId);
+  const set: string[] = [];
+  for (const f of INTEGRATION_FIELDS) {
+    const v = String(formData.get(f) ?? "").trim();
+    if (!v) continue; // blank = keep existing
+    if (f === "slackWebhookUrl") cfg.slackWebhookUrl = encryptSecret(v);
+    else if (f === "actionWebhookUrl") cfg.actionWebhookUrl = encryptSecret(v);
+    else {
+      cfg.google = cfg.google ?? {};
+      if (f === "googleClientId") cfg.google.clientId = encryptSecret(v);
+      else if (f === "googleClientSecret") cfg.google.clientSecret = encryptSecret(v);
+      else cfg.google.refreshToken = encryptSecret(v);
+    }
+    set.push(f);
+  }
+  await writeProviderConfig(handle, session.orgId, cfg);
+  await withOrg(handle, { orgId: session.orgId, userId: session.userId }, (tx) =>
+    audit(tx, { orgId: session.orgId, userId: session.userId }, {
+      action: "integrations.saved",
+      entityType: "organization",
+      entityId: session.orgId,
+      detail: { fields: set },
+    }),
+  );
+  await flash("integrationsSaved");
+  revalidatePath(`/${locale}/settings`);
+}
+
+export async function clearIntegrationAction(locale: string, formData: FormData) {
+  const handle = await ensureDb();
+  const session = await currentSession();
+  if (!session) redirect(`/${locale}/login`);
+  requireAdmin(session);
+  const field = String(formData.get("field") ?? "") as IntegrationField | "google";
+  const cfg = await readProviderConfig(handle, session.orgId);
+  if (field === "google") delete cfg.google;
+  else if (field === "slackWebhookUrl") delete cfg.slackWebhookUrl;
+  else if (field === "actionWebhookUrl") delete cfg.actionWebhookUrl;
+  else throw new Error(`invalid field: ${field}`);
+  await writeProviderConfig(handle, session.orgId, cfg);
+  await withOrg(handle, { orgId: session.orgId, userId: session.userId }, (tx) =>
+    audit(tx, { orgId: session.orgId, userId: session.userId }, {
+      action: "integrations.cleared",
+      entityType: "organization",
+      entityId: session.orgId,
+      detail: { field },
+    }),
+  );
+  await flash("integrationsSaved");
+  revalidatePath(`/${locale}/settings`);
+}
+
+/* ---------- Org monthly AI budget ---------- */
+
+export async function saveBudgetAction(locale: string, formData: FormData) {
+  const handle = await ensureDb();
+  const session = await currentSession();
+  if (!session) redirect(`/${locale}/login`);
+  requireAdmin(session);
+  const usd = Number(String(formData.get("budgetUsd") ?? "0"));
+  if (!Number.isFinite(usd) || usd < 0) throw new Error("invalid budget");
+  const cents = Math.round(usd * 100);
+  await handle.db
+    .update(schema.organizations)
+    .set({ budgetMonthlyCents: cents || null })
+    .where(eq(schema.organizations.id, session.orgId));
+  await withOrg(handle, { orgId: session.orgId, userId: session.userId }, (tx) =>
+    audit(tx, { orgId: session.orgId, userId: session.userId }, {
+      action: "budget.saved",
+      entityType: "organization",
+      entityId: session.orgId,
+      detail: { budgetMonthlyCents: cents },
+    }),
+  );
+  await flash("budgetSaved");
+  revalidatePath(`/${locale}/settings`);
+}
+
 /* ---------- Inbound webhook key ---------- */
 
 export async function generateIngestKeyAction(locale: string) {

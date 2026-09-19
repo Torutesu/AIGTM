@@ -20,6 +20,9 @@ import {
   saveRoutingAction,
   generateIngestKeyAction,
   revokeIngestKeyAction,
+  saveIntegrationsAction,
+  clearIntegrationAction,
+  saveBudgetAction,
 } from "../../../../lib/actions";
 import { PageHeader, Card, Chip, EmptyState } from "../_components/ui";
 import { SubmitButton } from "../_components/submit-button";
@@ -88,10 +91,16 @@ export default async function SettingsPage({
 
   // BYOK state: org key (masked) or env fallback or unset — never plaintext.
   const [org] = (await handle.db
-    .select({ providerConfig: schema.organizations.providerConfig })
+    .select({
+      providerConfig: schema.organizations.providerConfig,
+      budgetMonthlyCents: schema.organizations.budgetMonthlyCents,
+    })
     .from(schema.organizations)
     .where(eq(schema.organizations.id, session.orgId))
-    .limit(1)) as { providerConfig: OrgProviderConfig | null }[];
+    .limit(1)) as {
+    providerConfig: OrgProviderConfig | null;
+    budgetMonthlyCents: number | null;
+  }[];
   const cfg = org?.providerConfig ?? {};
   const providerState = (["openai", "anthropic"] as const).map((id) => {
     const stored = cfg.keys?.[id];
@@ -105,6 +114,25 @@ export default async function SettingsPage({
   });
   const roles = cfg.roles ?? {};
   const ingestConfigured = !!cfg.ingestKeyHash;
+  const masked = (v?: string) => {
+    const p = v ? decryptSecret(v) : null;
+    return p ? maskSecret(p) : null;
+  };
+  const integrations = {
+    slackWebhookUrl: masked(cfg.slackWebhookUrl),
+    actionWebhookUrl: masked(cfg.actionWebhookUrl),
+    google: cfg.google
+      ? {
+          clientId: masked(cfg.google.clientId),
+          clientSecret: masked(cfg.google.clientSecret),
+          refreshToken: masked(cfg.google.refreshToken),
+        }
+      : null,
+  };
+  const budgetUsd =
+    org?.budgetMonthlyCents != null
+      ? (org.budgetMonthlyCents / 100).toFixed(2)
+      : "";
 
   return (
     <SettingsView
@@ -115,6 +143,8 @@ export default async function SettingsPage({
       roles={roles}
       ingestConfigured={ingestConfigured}
       newKey={newKey ?? null}
+      integrations={integrations}
+      budgetUsd={budgetUsd}
     />
   );
 }
@@ -140,6 +170,8 @@ function SettingsView({
   roles,
   ingestConfigured,
   newKey,
+  integrations,
+  budgetUsd,
 }: {
   locale: string;
   members: MemberRow[];
@@ -148,6 +180,16 @@ function SettingsView({
   roles: Partial<Record<string, string>>;
   ingestConfigured: boolean;
   newKey: string | null;
+  integrations: {
+    slackWebhookUrl: string | null;
+    actionWebhookUrl: string | null;
+    google: {
+      clientId: string | null;
+      clientSecret: string | null;
+      refreshToken: string | null;
+    } | null;
+  };
+  budgetUsd: string;
 }) {
   const t = useTranslations("settings");
   return (
@@ -297,6 +339,137 @@ function SettingsView({
             </label>
           ))}
           <SubmitButton className="rounded-lg bg-forest px-4 py-2 font-mono text-[11px] tracking-[0.06em] text-white uppercase hover:bg-forest-deep">
+            {t("save")}
+          </SubmitButton>
+        </form>
+      </Card>
+
+      {/* Integrations: outbound dispatch targets + google connector */}
+      <Card className="mb-8 px-5 py-4" data-testid="integrations-card">
+        <p className="mb-1 font-mono text-[10px] tracking-label text-ink-faint uppercase">
+          {t("integrations")}
+        </p>
+        <p className="mb-4 font-mono text-[11px] leading-relaxed text-ink-faint">
+          {t("integrationsNote")}
+        </p>
+        <form
+          action={saveIntegrationsAction.bind(null, locale)}
+          className="space-y-3"
+        >
+          {(
+            [
+              ["slackWebhookUrl", t("slackWebhook"), t("slackPlaceholder"), integrations.slackWebhookUrl],
+              ["actionWebhookUrl", t("actionWebhook"), t("actionPlaceholder"), integrations.actionWebhookUrl],
+            ] as const
+          ).map(([field, label, ph, maskedVal]) => (
+            <div key={field} className="flex flex-wrap items-center gap-3">
+              <span className="w-44 font-mono text-[12px] text-ink">{label}</span>
+              {maskedVal ? (
+                <Chip tone="good">{`${t("configured")} ${maskedVal}`}</Chip>
+              ) : (
+                <Chip tone="neutral">{t("notSet")}</Chip>
+              )}
+              <input
+                name={field}
+                type="password"
+                autoComplete="off"
+                placeholder={ph}
+                className="w-72 rounded-lg border border-line bg-paper px-3 py-1.5 font-mono text-[12px] text-ink outline-none placeholder:text-ink-faint focus:border-forest"
+              />
+              {maskedVal ? (
+                <button
+                  type="submit"
+                  formAction={clearIntegrationAction.bind(null, locale)}
+                  name="field"
+                  value={field}
+                  className="rounded-md px-2 py-1.5 font-mono text-[10.5px] tracking-[0.04em] text-red-ink uppercase hover:bg-red-ink/10"
+                >
+                  {t("clear")}
+                </button>
+              ) : null}
+            </div>
+          ))}
+
+          <div className="border-t border-line pt-3">
+            <p className="mb-2 font-mono text-[11px] text-ink-soft">{t("google")}</p>
+            <p className="mb-3 font-mono text-[10.5px] leading-relaxed text-ink-faint">
+              {t("googleNote")}
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              {integrations.google ? (
+                <Chip tone="good">{t("configured")}</Chip>
+              ) : (
+                <Chip tone="neutral">{t("notSet")}</Chip>
+              )}
+              {integrations.google ? (
+                <button
+                  type="submit"
+                  formAction={clearIntegrationAction.bind(null, locale)}
+                  name="field"
+                  value="google"
+                  className="rounded-md px-2 py-1.5 font-mono text-[10.5px] tracking-[0.04em] text-red-ink uppercase hover:bg-red-ink/10"
+                >
+                  {t("clear")}
+                </button>
+              ) : null}
+            </div>
+            <div className="mt-3 flex flex-wrap gap-3">
+              <input
+                name="googleClientId"
+                type="password"
+                autoComplete="off"
+                placeholder={t("clientId")}
+                className="w-64 rounded-lg border border-line bg-paper px-3 py-1.5 font-mono text-[12px] text-ink outline-none placeholder:text-ink-faint focus:border-forest"
+              />
+              <input
+                name="googleClientSecret"
+                type="password"
+                autoComplete="off"
+                placeholder={t("clientSecret")}
+                className="w-64 rounded-lg border border-line bg-paper px-3 py-1.5 font-mono text-[12px] text-ink outline-none placeholder:text-ink-faint focus:border-forest"
+              />
+              <input
+                name="googleRefreshToken"
+                type="password"
+                autoComplete="off"
+                placeholder={t("refreshToken")}
+                className="w-64 rounded-lg border border-line bg-paper px-3 py-1.5 font-mono text-[12px] text-ink outline-none placeholder:text-ink-faint focus:border-forest"
+              />
+            </div>
+          </div>
+
+          <SubmitButton
+            testId="save-integrations"
+            className="rounded-lg bg-forest px-4 py-2 font-mono text-[11px] tracking-[0.06em] text-white uppercase hover:bg-forest-deep"
+          >
+            {t("save")}
+          </SubmitButton>
+        </form>
+      </Card>
+
+      {/* Org monthly AI budget */}
+      <Card className="mb-8 px-5 py-4" data-testid="budget-card">
+        <p className="mb-1 font-mono text-[10px] tracking-label text-ink-faint uppercase">
+          {t("budget")}
+        </p>
+        <p className="mb-4 font-mono text-[11px] leading-relaxed text-ink-faint">
+          {t("budgetNote")}
+        </p>
+        <form
+          action={saveBudgetAction.bind(null, locale)}
+          className="flex items-center gap-3"
+        >
+          <input
+            name="budgetUsd"
+            type="number"
+            min="0"
+            step="0.01"
+            defaultValue={budgetUsd}
+            placeholder={t("budgetPlaceholder")}
+            data-testid="budget-input"
+            className="w-40 rounded-lg border border-line bg-paper px-3 py-1.5 font-mono text-[12px] text-ink outline-none placeholder:text-ink-faint focus:border-forest"
+          />
+          <SubmitButton className="rounded-md border border-line px-2.5 py-1.5 font-mono text-[10.5px] tracking-[0.04em] text-ink-soft uppercase hover:border-ink-faint">
             {t("save")}
           </SubmitButton>
         </form>

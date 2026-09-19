@@ -158,6 +158,77 @@ export async function signIn(
   };
 }
 
+/**
+ * Sign in (or provision) a user verified by an external IdP (OAuth).
+ * - existing user + membership → session
+ * - unknown email → create user + membership: joins the deployment's single
+ *   org as "member" when exactly one exists; creates a new org when none
+ *   exist; throws sso_no_org when several orgs exist (can't pick safely)
+ * The user's passwordHash is an IdP sentinel, not a usable password.
+ */
+export async function ssoSignIn(
+  handle: DbHandle,
+  input: { email: string; name: string; provider: string },
+): Promise<{ token: string; session: SessionInfo }> {
+  const db = handle.db;
+  const email = input.email.toLowerCase();
+  let [user] = await db
+    .select()
+    .from(schema.users)
+    .where(eq(schema.users.email, email))
+    .limit(1);
+
+  if (!user) {
+    const orgs = await db.select({ id: schema.organizations.id }).from(schema.organizations);
+    if (orgs.length > 1) throw new Error("sso_no_org");
+    let role = "member";
+    const orgId =
+      orgs[0]?.id ??
+      (
+        await db
+          .insert(schema.organizations)
+          .values({ name: `${input.name}'s workspace` })
+          .returning()
+      )[0].id;
+    if (!orgs[0]) role = "admin";
+    [user] = await db
+      .insert(schema.users)
+      .values({
+        email,
+        name: input.name || email.split("@")[0],
+        passwordHash: `sso:${input.provider}`,
+      })
+      .returning();
+    await db
+      .insert(schema.memberships)
+      .values({ orgId, userId: user.id, role });
+  }
+
+  const [membership] = await db
+    .select()
+    .from(schema.memberships)
+    .where(eq(schema.memberships.userId, user.id))
+    .limit(1);
+  if (!membership) throw new Error("sso_no_membership");
+
+  const token = newSessionToken();
+  await db.insert(schema.sessions).values({
+    userId: user.id,
+    token,
+    expiresAt: new Date(Date.now() + SESSION_TTL_MS),
+  });
+  return {
+    token,
+    session: {
+      userId: user.id,
+      email: user.email,
+      name: user.name,
+      orgId: membership.orgId,
+      role: membership.role,
+    },
+  };
+}
+
 export async function getSession(handle: DbHandle, token: string | undefined) {
   if (!token) return null;
   const db = handle.db;

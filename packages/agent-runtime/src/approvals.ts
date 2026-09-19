@@ -1,5 +1,13 @@
 import { eq, and, inArray, sql } from "drizzle-orm";
-import { schema, withOrg, audit, type DbHandle, type OrgContext } from "@aigtm/db";
+import {
+  schema,
+  withOrg,
+  audit,
+  decryptSecret,
+  type DbHandle,
+  type OrgContext,
+  type OrgProviderConfig,
+} from "@aigtm/db";
 import { logEvent } from "./log";
 
 const EMAIL_KINDS = new Set(["send_email", "draft_email"]);
@@ -39,6 +47,59 @@ function emailFields(payload: Record<string, any>) {
   };
 }
 
+async function orgProviderConfig(
+  handle: DbHandle,
+  orgId: string,
+): Promise<OrgProviderConfig> {
+  const [org] = (await handle.db
+    .select({ providerConfig: schema.organizations.providerConfig })
+    .from(schema.organizations)
+    .where(eq(schema.organizations.id, orgId))
+    .limit(1)) as { providerConfig: OrgProviderConfig | null }[];
+  return org?.providerConfig ?? {};
+}
+
+/** Slack text: edited body → digest/note fields → JSON of steps. */
+function slackText(payload: Record<string, any>): string {
+  const { body } = emailFields(payload);
+  if (body) return body;
+  const ctx = (payload.context ?? {}) as Record<string, any>;
+  for (const v of Object.values(ctx)) {
+    if (v && typeof v === "object") {
+      for (const k of ["digest", "text", "summary"]) {
+        if (typeof (v as any)[k] === "string") return (v as any)[k];
+      }
+    }
+  }
+  return JSON.stringify(payload).slice(0, 3000);
+}
+
+async function postToSlack(webhookUrl: string, payload: Record<string, any>) {
+  const res = await fetch(webhookUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text: slackText(payload).slice(0, 3900) }),
+  });
+  if (!res.ok) {
+    const msg = (await res.text()).slice(0, 300);
+    throw new Error(`slack webhook ${res.status}: ${msg}`);
+  }
+  return { ok: true };
+}
+
+async function postToActionWebhook(url: string, kind: string, orgId: string, payload: Record<string, any>) {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ kind, orgId, payload }),
+  });
+  if (!res.ok) {
+    const msg = (await res.text()).slice(0, 300);
+    throw new Error(`action webhook ${res.status}: ${msg}`);
+  }
+  return { ok: true };
+}
+
 async function sendViaResend(payload: Record<string, any>) {
   const apiKey = process.env.AIGTM_RESEND_API_KEY;
   const from = process.env.AIGTM_EMAIL_FROM;
@@ -66,19 +127,23 @@ async function sendViaResend(payload: Record<string, any>) {
  * Dispatch a released outbox row. Runs outside the approval transaction so
  * a provider failure never rolls back the recorded decision.
  *
- * Real send: kind ∈ {send_email, draft_email} AND
- * AIGTM_EMAIL_PROVIDER=resend (+AIGTM_RESEND_API_KEY, AIGTM_EMAIL_FROM).
- * Anything else transitions to `dispatched` with `mock: true` in audit —
- * marked, not hidden. Failures land on `failed` and are retried by
- * dispatchPendingOutbox (worker sweep), capped at MAX_DISPATCH_ATTEMPTS.
+ * Provider resolution order:
+ *  - email kinds (send_email/draft_email) + AIGTM_EMAIL_PROVIDER=resend
+ *    → api.resend.com
+ *  - post_slack + org Slack webhook (Settings → Integrations) → Slack
+ *  - any kind + org action webhook → POST {kind, orgId, payload}
+ *  - otherwise → marked mock dispatch (audit records mock: true + reason)
+ *
+ * Failures land on `failed` and are retried by dispatchPendingOutbox
+ * (worker sweep), capped at MAX_DISPATCH_ATTEMPTS.
  */
 export async function dispatchOutbox(
   handle: DbHandle,
   ctx: OrgContext,
   outboxId: string,
 ) {
-  const provider = process.env.AIGTM_EMAIL_PROVIDER;
   let realResult: { id?: string } | null = null;
+  let providerName: string | null = null;
   let error: string | null = null;
 
   const row = await withOrg(handle, ctx, async (tx) => {
@@ -93,45 +158,67 @@ export async function dispatchOutbox(
 
   const payload = (row.payload ?? {}) as Record<string, any>;
   const attempts = Number(payload.dispatchAttempts ?? 0) + 1;
-  const real = EMAIL_KINDS.has(row.kind) && provider === "resend";
-  if (real) {
-    try {
+  const cfg = await orgProviderConfig(handle, ctx.orgId);
+  const slackUrl = decryptSecret(cfg.slackWebhookUrl);
+  const actionUrl = decryptSecret(cfg.actionWebhookUrl);
+  const resend =
+    EMAIL_KINDS.has(row.kind) &&
+    process.env.AIGTM_EMAIL_PROVIDER === "resend";
+
+  try {
+    if (resend) {
       realResult = await sendViaResend(payload);
-    } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
-      logEvent("outbox.dispatch_error", {
-        outboxId,
-        kind: row.kind,
-        attempts,
-        error,
-      });
+      providerName = "resend";
+    } else if (row.kind === "post_slack" && slackUrl) {
+      await postToSlack(slackUrl, payload);
+      providerName = "slack";
+    } else if (actionUrl) {
+      await postToActionWebhook(actionUrl, row.kind, ctx.orgId, payload);
+      providerName = "webhook";
     }
+  } catch (e) {
+    error = e instanceof Error ? e.message : String(e);
+    providerName = null;
+    logEvent("outbox.dispatch_error", {
+      outboxId,
+      kind: row.kind,
+      attempts,
+      error,
+    });
   }
 
-  const delivered = real && !error;
+  const delivered = providerName !== null && !error;
+  const realAttempted = resend || (row.kind === "post_slack" && !!slackUrl) || !!actionUrl;
   await withOrg(handle, { ...ctx, actorType: "system" }, async (tx) => {
     await tx
       .update(schema.outbox)
       .set({
-        status: delivered || !real ? "dispatched" : "failed",
-        dispatchedAt: delivered || !real ? new Date() : null,
+        status: delivered || !realAttempted ? "dispatched" : "failed",
+        dispatchedAt: delivered || !realAttempted ? new Date() : null,
         payload: { ...payload, dispatchAttempts: attempts },
       })
       .where(eq(schema.outbox.id, outboxId));
     await audit(tx, { ...ctx, actorType: "system" }, {
-      action: delivered || !real ? "outbox.dispatched" : "outbox.dispatch_failed",
+      action:
+        delivered || !realAttempted
+          ? "outbox.dispatched"
+          : "outbox.dispatch_failed",
       entityType: "outbox",
       entityId: outboxId,
       detail: delivered
-        ? { kind: row.kind, provider: "resend", messageId: realResult?.id }
-        : real
+        ? providerName === "resend"
+          ? { kind: row.kind, provider: "resend", messageId: realResult?.id }
+          : { kind: row.kind, provider: providerName }
+        : realAttempted
           ? { kind: row.kind, error, attempts }
           : {
               kind: row.kind,
               mock: true,
               reason: EMAIL_KINDS.has(row.kind)
                 ? "AIGTM_EMAIL_PROVIDER not configured"
-                : `no connector for ${row.kind}`,
+                : row.kind === "post_slack"
+                  ? "org Slack webhook not configured"
+                  : "no action webhook configured",
             },
     });
   });

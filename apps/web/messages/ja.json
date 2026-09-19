@@ -33,7 +33,9 @@
     "errorInvalid": "メールアドレスまたはパスワードが正しくありません",
     "errorLocked": "失敗が多すぎます。1分ほど待ってから再度お試しください。",
     "haveAccount": "既存ワークスペースにサインイン",
-    "needAccount": "新しいワークスペースを作成"
+    "needAccount": "新しいワークスペースを作成",
+    "signInGoogle": "Google でサインイン",
+    "errorSso": "SSO に失敗しました。OAuth 設定を確認するか、メールでサインインしてください。"
   },
   "inbox": {
     "eyebrow": "Inbox / Triage",
@@ -198,7 +200,23 @@
     "regenerate": "再生成",
     "revoke": "失効",
     "newKeyBanner": "新しい ingest キー — 今だけ表示されます。コピーしてください:",
-    "exampleCurl": "例"
+    "exampleCurl": "例",
+    "integrations": "連携",
+    "integrationsNote": "送信・受信コネクタ。Slack webhook は post_slack アクションを投稿、アクション webhook は crm_write / create_task のペイロードを受け取ります（Zapier/n8n/自社エンドポイント）。Google Workspace 認証情報は Gmail + Calendar を conversations に同期します。",
+    "slackWebhook": "Slack webhook URL",
+    "slackPlaceholder": "https://hooks.slack.com/services/…",
+    "actionWebhook": "アクション webhook URL",
+    "actionPlaceholder": "https://…",
+    "google": "Google Workspace (Gmail + Calendar)",
+    "googleNote": "gmail.readonly + calendar.readonly スコープの OAuth クライアントID/シークレット/リフレッシュトークン。暗号化して保存し、worker が同期します。",
+    "clientId": "クライアントID",
+    "clientSecret": "クライアントシークレット",
+    "refreshToken": "リフレッシュトークン",
+    "clear": "クリア",
+    "budget": "月次 AI 予算 (USD)",
+    "budgetNote": "当月の run コストがこれを超えると org の新規 LLM ステップを止めます。0 = 無制限。",
+    "budgetPlaceholder": "0.00",
+    "saved": "保存しました"
   },
   "account": {
     "eyebrow": "Records / Account",
@@ -307,6 +325,9 @@
     "keySaved": "APIキーを保存しました",
     "keyRemoved": "APIキーを削除しました",
     "routingSaved": "モデルルーティングを保存しました",
-    "ingestRevoked": "Ingest キーを失効しました"
-  }
+    "ingestRevoked": "Ingest キーを失効しました",
+    "integrationsSaved": "連携設定を保存しました",
+    "budgetSaved": "予算を保存しました"
+  },
+  "flash": {}
 }

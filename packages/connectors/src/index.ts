@@ -267,6 +267,8 @@ export async function upsertPerson(
 /**
  * Ingest messages into conversations via a connector (mock in Phase 0).
  */
+export { fetchGmailMessages, fetchCalendarEvents, syncGoogleWorkspace } from "./google";
+
 export async function syncConversations(
   handle: DbHandle,
   ctx: OrgContext,

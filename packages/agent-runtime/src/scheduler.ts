@@ -7,6 +7,7 @@ import {
 } from "@aigtm/db";
 import { parseAgentSpec, parseSignalSpec } from "@aigtm/specs";
 import { dispatchPendingOutbox } from "./approvals";
+import { syncGoogleWorkspace } from "@aigtm/connectors";
 import { logEvent } from "./log";
 import { executeRun } from "./runner";
 import { routerForOrg, type ModelRouter } from "./model";
@@ -387,6 +388,35 @@ export async function tick(
         orgId: org.id,
         error: e instanceof Error ? e.message : String(e),
       });
+    }
+
+    // Connector sync (Google Workspace → conversations), throttled per org
+    // to once every 5 min — runs on the worker's own interval.
+    try {
+      const [orgRow] = (await handle.db
+        .select({ providerConfig: schema.organizations.providerConfig })
+        .from(schema.organizations)
+        .where(eq(schema.organizations.id, org.id))
+        .limit(1)) as {
+        providerConfig: { connectorsLastSyncAt?: string; google?: unknown } | null;
+      }[];
+      const lastSync = orgRow?.providerConfig?.connectorsLastSyncAt;
+      const due =
+        orgRow?.providerConfig?.google != null &&
+        (!lastSync || Date.parse(lastSync) < now.getTime() - 5 * 60_000);
+      if (due) {
+        const res = await syncGoogleWorkspace(handle, org.id);
+        if (res) logEvent("connectors.synced", { orgId: org.id, ...res });
+      }
+    } catch (e) {
+      logEvent(
+        "connectors.sync_failed",
+        {
+          orgId: org.id,
+          error: e instanceof Error ? e.message : String(e),
+        },
+        "warn",
+      );
     }
   }
   logEvent("worker.tick", { launched, signalEvents: emitted.length });

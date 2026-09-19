@@ -10,13 +10,15 @@
     "worker": "tsx src/worker.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --max-warnings 0",
-    "sync-specs": "tsx src/spec-sync.ts"
+    "sync-specs": "tsx src/spec-sync.ts",
+    "smoke": "tsx src/smoke.ts"
   },
   "dependencies": {
     "@aigtm/db": "workspace:*",
     "@aigtm/specs": "workspace:*",
     "zod": "^3.25.0",
-    "drizzle-orm": "^0.44.2"
+    "drizzle-orm": "^0.44.2",
+    "@aigtm/connectors": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.8.3"

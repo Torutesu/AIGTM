@@ -33,7 +33,9 @@
     "errorInvalid": "Invalid email or password",
     "errorLocked": "Too many failed attempts. Try again in a minute.",
     "haveAccount": "Sign in to an existing workspace",
-    "needAccount": "Create a new workspace"
+    "needAccount": "Create a new workspace",
+    "signInGoogle": "Sign in with Google",
+    "errorSso": "Single sign-on failed. Check the OAuth configuration or use email sign-in."
   },
   "inbox": {
     "eyebrow": "Inbox / Triage",
@@ -198,7 +200,23 @@
     "regenerate": "Regenerate",
     "revoke": "Revoke",
     "newKeyBanner": "New ingest key — copy it now, it is shown only once:",
-    "exampleCurl": "Example"
+    "exampleCurl": "Example",
+    "integrations": "Integrations",
+    "integrationsNote": "Outbound + inbound connectors. Slack webhook posts post_slack actions; the action webhook receives crm_write / create_task payloads (Zapier, n8n, custom endpoints). Google Workspace creds sync Gmail + Calendar into conversations.",
+    "slackWebhook": "Slack webhook URL",
+    "slackPlaceholder": "https://hooks.slack.com/services/…",
+    "actionWebhook": "Action webhook URL",
+    "actionPlaceholder": "https://…",
+    "google": "Google Workspace (Gmail + Calendar)",
+    "googleNote": "OAuth client ID / secret / refresh token with gmail.readonly + calendar.readonly scopes. Stored encrypted; synced by the worker.",
+    "clientId": "Client ID",
+    "clientSecret": "Client secret",
+    "refreshToken": "Refresh token",
+    "clear": "Clear",
+    "budget": "Monthly AI budget (USD)",
+    "budgetNote": "Stops new LLM steps for the org once the month's run cost exceeds this. 0 = unlimited.",
+    "budgetPlaceholder": "0.00",
+    "saved": "Saved"
   },
   "account": {
     "eyebrow": "Records / Account",
@@ -307,6 +325,9 @@
     "keySaved": "API key saved",
     "keyRemoved": "API key removed",
     "routingSaved": "Model routing saved",
-    "ingestRevoked": "Ingest key revoked"
-  }
+    "ingestRevoked": "Ingest key revoked",
+    "integrationsSaved": "Integrations saved",
+    "budgetSaved": "Budget saved"
+  },
+  "flash": {}
 }
