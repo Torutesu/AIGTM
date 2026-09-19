@@ -22,6 +22,7 @@ export default defineConfig({
       // handshake itself is only exercised up to the Google redirect
       GOOGLE_OAUTH_CLIENT_ID: "e2e-google-client",
       GOOGLE_OAUTH_CLIENT_SECRET: "e2e-google-secret",
+      AIGTM_METRICS_TOKEN: "e2e-metrics-token",
     },
   },
 });

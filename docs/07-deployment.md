@@ -41,6 +41,8 @@ Everything below reflects what was actually run — not aspirational config.
 | `AIGTM_EMAIL_FROM` | unset | Verified Resend sender address (`AIGTM <ops@yourdomain>`). Required when resend is on. |
 | `AIGTM_EVAL_LLM_JUDGE` | unset | `1` enables the LLM-judge eval: a cheap-model critique of each run's output is appended to `runs.eval_notes` (judge cost counted in `cost_cents`). |
 | `AIGTM_INGEST_RATE_LIMIT` | `120` | Per-key requests/minute cap on `POST /api/ingest` (per instance). Bodies over 256KB are rejected with 413. |
+| `AIGTM_METRICS_TOKEN` | unset | Enables `GET /api/metrics` (Prometheus text format, Bearer auth). Unset → 404. Global aggregates only. |
+| `AIGTM_AUDIT_WEBHOOK_URL` | unset | Worker forwards new `audit_events` here each tick (`POST {events:[…]}`). At-least-once, in-memory watermark — restarts don't replay gaps. |
 | `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` | unset | Google SSO. When both are set the login page shows "Sign in with Google". Create an OAuth client (type: web) in Google Cloud Console. |
 | `AIGTM_BASE_URL` | `http://localhost:3000` | Public origin used to build the OAuth redirect URI (`$AIGTM_BASE_URL/api/auth/google/callback`). Register that exact URI in the Google client. |
 | `AIGTM_E2E` (internal) | — | Set by Playwright's webServer env via `DATABASE_URL=pglite://./.pglite-e2e`. |

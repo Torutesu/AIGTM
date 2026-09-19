@@ -568,3 +568,24 @@ test("ingest rejects oversized payloads with 413", async ({ page }) => {
   });
   expect(res.status()).toBe(413);
 });
+
+test("metrics endpoint: bearer-protected prometheus exposition", async ({
+  page,
+}) => {
+  await page.goto("/en/inbox"); // logged in via beforeEach — irrelevant to auth though
+
+  const unauth = await page.request.get("/api/metrics");
+  expect(unauth.status()).toBe(401);
+
+  const res = await page.request.get("/api/metrics", {
+    headers: { authorization: "Bearer e2e-metrics-token" },
+  });
+  expect(res.status()).toBe(200);
+  expect(res.headers()["content-type"]).toContain("text/plain");
+  const body = await res.text();
+  expect(body).toContain("aigtm_runs_total");
+  expect(body).toContain("aigtm_outbox_rows");
+  expect(body).toContain("aigtm_approvals_pending");
+  expect(body).toContain("aigtm_audit_events");
+  expect(body).toContain("aigtm_organizations 1");
+});

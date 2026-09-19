@@ -7,6 +7,7 @@ import {
 } from "@aigtm/db";
 import { parseAgentSpec, parseSignalSpec } from "@aigtm/specs";
 import { dispatchPendingOutbox } from "./approvals";
+import { drainAuditSink } from "./audit-sink";
 import { syncGoogleWorkspace } from "@aigtm/connectors";
 import { logEvent } from "./log";
 import { executeRun } from "./runner";
@@ -418,6 +419,18 @@ export async function tick(
         "warn",
       );
     }
+  }
+  // Forward new audit events to the external sink (deployment-level, once
+  // per tick — not per org).
+  try {
+    const n = await drainAuditSink(handle);
+    if (n) logEvent("audit_sink.forwarded", { events: n });
+  } catch (e) {
+    logEvent(
+      "audit_sink.error",
+      { error: e instanceof Error ? e.message : String(e) },
+      "warn",
+    );
   }
   logEvent("worker.tick", { launched, signalEvents: emitted.length });
   return launched;
