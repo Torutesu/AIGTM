@@ -183,7 +183,7 @@ function AccountsView({
       {accounts.length === 0 ? (
         <EmptyState label={t("empty")} />
       ) : (
-        <Card className="overflow-hidden">
+        <Card className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-line text-left">

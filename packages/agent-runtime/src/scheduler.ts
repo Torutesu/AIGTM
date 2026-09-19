@@ -432,6 +432,22 @@ export async function tick(
       "warn",
     );
   }
+  // Heartbeat — /api/metrics exposes its age so monitoring can alert on a
+  // wedged or dead worker.
+  try {
+    await handle.db
+      .insert(schema.workerState)
+      .values({ key: "last_tick_at", value: { at: new Date().toISOString() } })
+      .onConflictDoUpdate({
+        target: schema.workerState.key,
+        set: {
+          value: { at: new Date().toISOString() },
+          updatedAt: new Date(),
+        },
+      });
+  } catch {
+    /* heartbeat is best-effort */
+  }
   logEvent("worker.tick", { launched, signalEvents: emitted.length });
   return launched;
 }

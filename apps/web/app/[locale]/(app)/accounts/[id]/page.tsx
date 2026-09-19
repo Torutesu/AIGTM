@@ -6,6 +6,8 @@ import { notFound } from "next/navigation";
 import { schema, withOrg } from "@aigtm/db";
 import { ensureDb } from "../../../../../lib/db";
 import { requireSession } from "../../../../../lib/session";
+import { eraseAccountAction } from "../../../../../lib/actions";
+import { ConfirmButton } from "../../_components/confirm-button";
 import {
   Chip,
   Card,
@@ -119,7 +121,7 @@ export default async function AccountDetailPage({
   );
 
   if (!data) notFound();
-  return <AccountView locale={locale} {...data} />;
+  return <AccountView locale={locale} canAct={session.role === "admin"} {...data} />;
 }
 
 function dealStageTone(stage: string): ChipTone {
@@ -131,6 +133,7 @@ function dealStageTone(stage: string): ChipTone {
 
 function AccountView({
   locale,
+  canAct,
   account,
   people,
   dealRows,
@@ -139,6 +142,7 @@ function AccountView({
   knowledgeRows,
 }: {
   locale: string;
+  canAct: boolean;
   account: AccountRow;
   people: PersonRow[];
   dealRows: DealRow[];
@@ -172,6 +176,18 @@ function AccountView({
             <Chip tone={account.stage === "customer" ? "good" : account.stage === "opportunity" ? "pending" : "info"}>
               {account.stage}
             </Chip>
+            {canAct && account.name !== "[erased]" ? (
+              <form action={eraseAccountAction.bind(null, locale)}>
+                <input type="hidden" name="accountId" value={account.id} />
+                <ConfirmButton
+                  message={t("eraseConfirm")}
+                  testId="erase-account"
+                  className="rounded-md px-2 py-1.5 font-mono text-[10.5px] tracking-[0.04em] text-red-ink uppercase hover:bg-red-ink/10"
+                >
+                  {t("erase")}
+                </ConfirmButton>
+              </form>
+            ) : null}
           </div>
         </div>
       </header>
@@ -190,7 +206,7 @@ function AccountView({
                   <li key={s.id}>
                     <Card className="px-5 py-4">
                       <div className="flex items-center justify-between gap-4">
-                        <span className="text-[14px] font-semibold text-ink">{s.signalName}</span>
+                        <span className="min-w-0 truncate text-[14px] font-semibold text-ink">{s.signalName}</span>
                         <div className="flex items-center gap-3">
                           <ScoreBar score={s.score} />
                           <span className="font-mono text-[11px] text-ink-faint">

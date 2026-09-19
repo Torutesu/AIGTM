@@ -239,7 +239,10 @@
     "noKnowledge": "No learned context yet.",
     "confidence": "confidence",
     "contacts": "Contacts",
-    "deals": "Opportunities"
+    "deals": "Opportunities",
+    "erase": "Erase account",
+    "eraseConfirm": "Anonymize this account and erase its contacts? This cannot be undone.",
+    "erasedBadge": "erased"
   },
   "agent": {
     "eyebrow": "Agents / Detail",
@@ -282,7 +285,9 @@
     "contact": "Contact",
     "role": "Role",
     "account": "Account",
-    "email": "Email"
+    "email": "Email",
+    "erase": "Erase",
+    "eraseConfirm": "Erase this contact's personal data? This cannot be undone."
   },
   "signals": {
     "eyebrow": "Configure / Signals",
@@ -338,7 +343,9 @@
     "routingSaved": "Model routing saved",
     "ingestRevoked": "Ingest key revoked",
     "integrationsSaved": "Integrations saved",
-    "budgetSaved": "Budget saved"
+    "budgetSaved": "Budget saved",
+    "personErased": "Contact erased",
+    "accountErased": "Account erased"
   },
   "flash": {}
 }

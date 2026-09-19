@@ -589,3 +589,46 @@ test("metrics endpoint: bearer-protected prometheus exposition", async ({
   expect(body).toContain("aigtm_audit_events");
   expect(body).toContain("aigtm_organizations 1");
 });
+
+test("admin can erase a contact; dialog cancel aborts", async ({ page }) => {
+  await page.goto("/en/contacts");
+  const row = page.locator("tr", { hasText: "rin@acme-robotics.example" });
+  await expect(row).toBeVisible();
+
+  // cancel: nothing happens
+  page.on("dialog", (d) => void d.dismiss());
+  await row.getByRole("button", { name: "Erase" }).click();
+  await expect(row).toBeVisible();
+
+  // accept: person is anonymized
+  page.removeAllListeners("dialog");
+  page.on("dialog", (d) => void d.accept());
+  await row.getByRole("button", { name: "Erase" }).click();
+  await expect(
+    page.locator("tr", { hasText: "[erased]" }).first(),
+  ).toBeVisible();
+});
+
+test("admin can erase an account from account 360", async ({ page }) => {
+  await page.goto("/en/accounts");
+  await page.locator('main a[href*="/accounts/"]').first().click();
+  await page.waitForURL(/\/en\/accounts\/.+/);
+  page.on("dialog", (d) => void d.accept());
+  await page.getByTestId("erase-account").click();
+  await expect(page.locator("h1", { hasText: "[erased]" })).toBeVisible();
+});
+
+test("viewer sees no erasure controls", async ({ browser }) => {
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  await page.goto("/en/login");
+  const signIn = page.locator("form").filter({ hasText: "Sign in" });
+  await signIn.getByPlaceholder("Email").fill("viewer@aigtm.local");
+  await signIn.getByPlaceholder("Password").fill("viewer-password");
+  await signIn.getByRole("button", { name: "Sign in", exact: true }).click();
+  await page.waitForURL("**/en/inbox");
+
+  await page.goto("/en/contacts");
+  await expect(page.getByRole("button", { name: "Erase" })).toHaveCount(0);
+  await ctx.close();
+});

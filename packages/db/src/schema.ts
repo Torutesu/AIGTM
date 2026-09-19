@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   pgTable,
   uuid,
@@ -131,13 +132,19 @@ export const conversations = pgTable(
     orgId: uuid("org_id").notNull().references(() => organizations.id),
     accountId: uuid("account_id").references(() => accounts.id),
     channel: text("channel").notNull(), // email | call | meeting | slack
+    externalId: text("external_id"), // upstream id (gmail:, gcal:, …) — dedup key
     subject: text("subject"),
     participants: jsonb("participants"),
     summary: text("summary"),
     occurredAt: timestamp("occurred_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  (t) => [index("conversations_org").on(t.orgId)],
+  (t) => [
+    index("conversations_org").on(t.orgId),
+    uniqueIndex("conversations_org_external")
+      .on(t.orgId, t.externalId)
+      .where(sql`"external_id" IS NOT NULL`),
+  ],
 );
 
 export const signals = pgTable(
@@ -302,3 +309,14 @@ export const auditEvents = pgTable(
   },
   (t) => [index("audit_events_org").on(t.orgId), index("audit_events_created").on(t.createdAt)],
 );
+
+/**
+ * Deployment-level worker state (NOT tenant-scoped — no RLS). Used for
+ * durable watermarks (audit sink) and the worker heartbeat that
+ * /api/metrics exposes as tick age.
+ */
+export const workerState = pgTable("worker_state", {
+  key: text("key").primaryKey(),
+  value: jsonb("value").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});

@@ -20,6 +20,8 @@ import {
   encryptSecret,
   newIngestKey,
   hashSecret,
+  erasePerson,
+  eraseAccount,
   type OrgProviderConfig,
 } from "@aigtm/db";
 import { ensureDb } from "./db";
@@ -701,4 +703,41 @@ export async function revokeIngestKeyAction(locale: string) {
   );
   await flash("ingestRevoked");
   revalidatePath(`/${locale}/settings`);
+}
+
+/* ---------- GDPR erasure ---------- */
+
+export async function erasePersonAction(locale: string, formData: FormData) {
+  const handle = await ensureDb();
+  const session = await currentSession();
+  if (!session) redirect(`/${locale}/login`);
+  requireAdmin(session);
+  const personId = String(formData.get("personId") ?? "");
+  if (!personId) return;
+  await withOrg(
+    handle,
+    { orgId: session.orgId, userId: session.userId, actorType: "user" },
+    (tx) => erasePerson(tx, { orgId: session.orgId, userId: session.userId, actorType: "user" }, personId),
+  );
+  await flash("personErased");
+  revalidatePath(`/${locale}/contacts`);
+  revalidatePath(`/${locale}/accounts`);
+}
+
+export async function eraseAccountAction(locale: string, formData: FormData) {
+  const handle = await ensureDb();
+  const session = await currentSession();
+  if (!session) redirect(`/${locale}/login`);
+  requireAdmin(session);
+  const accountId = String(formData.get("accountId") ?? "");
+  if (!accountId) return;
+  await withOrg(
+    handle,
+    { orgId: session.orgId, userId: session.userId, actorType: "user" },
+    (tx) => eraseAccount(tx, { orgId: session.orgId, userId: session.userId, actorType: "user" }, accountId),
+  );
+  await flash("accountErased");
+  revalidatePath(`/${locale}/accounts`);
+  revalidatePath(`/${locale}/contacts`);
+  revalidatePath(`/${locale}/deals`);
 }

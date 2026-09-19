@@ -190,7 +190,7 @@ export function CommandPalette({ role }: { role?: string }) {
               role="dialog"
               aria-modal="true"
               aria-label={nav("search")}
-              className="fixed inset-0 z-50 flex items-start justify-center bg-ink/20 px-4 pt-[18vh] backdrop-blur-[2px]"
+              className="fixed inset-0 z-50 flex items-start justify-center bg-ink/30 px-4 pt-[18vh]"
               onClick={() => setOpen(false)}
             >
           <div

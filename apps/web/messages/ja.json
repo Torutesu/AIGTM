@@ -239,7 +239,10 @@
     "noKnowledge": "蓄積されたコンテキストはまだありません。",
     "confidence": "確度",
     "contacts": "コンタクト",
-    "deals": "商談"
+    "deals": "商談",
+    "erase": "アカウントを消去",
+    "eraseConfirm": "このアカウントを匿名化し、関連する連絡先を消去しますか？元に戻せません。",
+    "erasedBadge": "消去済み"
   },
   "agent": {
     "eyebrow": "Agents / Detail",
@@ -282,7 +285,9 @@
     "contact": "コンタクト",
     "role": "役職",
     "account": "アカウント",
-    "email": "メール"
+    "email": "メール",
+    "erase": "消去",
+    "eraseConfirm": "この連絡先の個人情報を消去しますか？元に戻せません。"
   },
   "signals": {
     "eyebrow": "Configure / Signals",
@@ -338,7 +343,9 @@
     "routingSaved": "モデルルーティングを保存しました",
     "ingestRevoked": "Ingest キーを失効しました",
     "integrationsSaved": "連携設定を保存しました",
-    "budgetSaved": "予算を保存しました"
+    "budgetSaved": "予算を保存しました",
+    "personErased": "連絡先を消去しました",
+    "accountErased": "アカウントを消去しました"
   },
   "flash": {}
 }

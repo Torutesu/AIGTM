@@ -29,3 +29,7 @@ AI-native GTM OS を作る。ベンチマークは Frontrunner (usefr.com)。詳
 - org 月次予算: `organizations.budget_monthly_cents`（Settings で設定）。当月 `runs.cost_cents` 合計が予算超過なら新規 LLM ステップ前に run を rejected
 - Google Workspace 取り込み: Settings「Integrations」→「Connect Google Workspace」で OAuth 接続（`/api/google/connect` → callback が refresh token を暗号化保存）か手動貼付 → worker が5分スロットルで Gmail/Calendar → conversations に同期。失敗は org 単位で隔離
 - Google SSO: `GOOGLE_OAUTH_CLIENT_ID/SECRET` 設定時にログイン画面へボタン表示。`ssoSignIn` は既存ユーザー照合 → 新規は org が1つの時のみ自動プロビジョン（複数 org で曖昧なら `sso_no_org` で拒否 — 勝手にテナントを選ばない）
+- `conversations.external_id`（`gmail:`/`gcal:` 等の上流ID）が重複排除キー — subject 一致は fallback のみ。`(org_id, external_id)` の部分一意 index で DB レベルでも保証
+- `worker_state` KV テーブル: 監査シンクの watermark・worker ハートビートを永続化。`AIGTM_AUDIT_WEBHOOK_URL` へ at-least-once 転送（初回は最新イベントにアンカー — 履歴ダンプしない）
+- GDPR 消去: `@aigtm/db` の `erasePerson`/`eraseAccount` を admin 専用 server action から `withOrg` 内で呼ぶ。匿名化 tombstone（`[erased]`）＋監査記録、冪等
+- `/api/metrics`: `AIGTM_METRICS_TOKEN` 設定時のみ有効、Bearer 必須。Prometheus text 形式

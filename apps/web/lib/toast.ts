@@ -22,6 +22,8 @@ const KEYS = new Set([
   "ingestRevoked",
   "integrationsSaved",
   "budgetSaved",
+  "personErased",
+  "accountErased",
 ]);
 
 /** Set a one-shot toast consumed by ToastHub on the next render. */

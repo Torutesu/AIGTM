@@ -82,6 +82,23 @@ export async function GET(req: Request) {
   gauge("aigtm_users", "Registered users.");
   lines.push(`aigtm_users ${users[0]?.n ?? 0}`);
 
+  // worker freshness — alert when this grows past the poll interval
+  const [tick] = await db
+    .select({ value: schema.workerState.value })
+    .from(schema.workerState)
+    .where(sql`${schema.workerState.key} = 'last_tick_at'`)
+    .limit(1);
+  const tickAt = (tick?.value as { at?: string } | null)?.at;
+  gauge(
+    "aigtm_worker_tick_age_seconds",
+    "Seconds since the worker's last completed tick (-1 = never ran).",
+  );
+  lines.push(
+    `aigtm_worker_tick_age_seconds ${
+      tickAt ? Math.max(0, (Date.now() - Date.parse(tickAt)) / 1000) : -1
+    }`,
+  );
+
   return new Response(lines.join("\n") + "\n", {
     headers: { "Content-Type": "text/plain; version=0.0.4" },
   });

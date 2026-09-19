@@ -44,3 +44,4 @@ export interface OrgProviderConfig {
   /** RFC3339 — last successful connector sync (plaintext is fine). */
   connectorsLastSyncAt?: string;
 }
+export { erasePerson, eraseAccount } from "./erasure";

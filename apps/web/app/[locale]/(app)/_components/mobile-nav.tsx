@@ -48,7 +48,7 @@ export function MobileNav({
         ? createPortal(
             <div className="fixed inset-0 z-50 lg:hidden">
           <div
-            className="absolute inset-0 bg-ink/25 backdrop-blur-[2px]"
+            className="absolute inset-0 bg-ink/30"
             onClick={() => setOpen(false)}
           />
           <div className="absolute inset-y-0 left-0 flex w-64 flex-col border-r border-line bg-paper">

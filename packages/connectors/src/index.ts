@@ -75,14 +75,20 @@ export async function ingestMessages(
     for (const m of messages) {
       const domain = m.from.split("@")[1];
       const accountId = domain ? byDomain.get(domain) : undefined;
+      // Dedup: upstream externalId is the real key; subject match is only a
+      // fallback for sources that can't provide one.
       const existing = await tx
         .select({ id: schema.conversations.id })
         .from(schema.conversations)
         .where(
           and(
             eq(schema.conversations.orgId, ctx.orgId),
-            eq(schema.conversations.channel, m.channel),
-            eq(schema.conversations.subject, m.subject),
+            m.externalId
+              ? eq(schema.conversations.externalId, m.externalId)
+              : and(
+                  eq(schema.conversations.channel, m.channel),
+                  eq(schema.conversations.subject, m.subject),
+                ),
           ),
         )
         .limit(1);
@@ -91,6 +97,7 @@ export async function ingestMessages(
         orgId: ctx.orgId,
         accountId: accountId ?? null,
         channel: m.channel,
+        externalId: m.externalId ?? null,
         subject: m.subject,
         participants: [m.from, ...(m.to ?? [])],
         summary: m.body.slice(0, 500),

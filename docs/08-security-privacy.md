@@ -68,13 +68,29 @@ nothing pretends to have sent.
   verified**: table counts and forced-RLS flags survive a pg_restore
   round-trip. For managed Postgres, enable PITR as well.
 
+## Data subject rights (GDPR erasure)
+
+- **Person**: Contacts → Erase (admin only, confirmed). Anonymizes the
+  record: name → `[erased]`, email/role nulled, and the identity is
+  scrubbed from every conversation `participants[]`. Audited as
+  `person.erased`. Idempotent.
+- **Account**: Account 360 → Erase (admin only, confirmed). Same for the
+  account plus all attached people. Audited as `account.erased`.
+- Implemented in `@aigtm/db` (`erasure.ts`) inside `withOrg` — org-scoped
+  and RLS-covered; viewers/members cannot call the server actions.
+- Tombstone-not-delete is deliberate: foreign keys make hard deletes
+  unsafe and the audit trail must survive the subject.
+
 ## Known limits (honest list)
 
-- Audit sink forwarding is at-least-once with an in-memory watermark —
-  worker restarts do not replay the gap (events remain in the DB; the
-  sink is a mirror, not the record).
+- Audit sink forwarding is at-least-once and may duplicate events (the
+  watermark is durable in `worker_state`; a crash between POST and
+  watermark write re-sends the batch).
 - Rate limits are per-instance (multiplied by replica count).
 - No field-level encryption for conversation content — relies on Postgres
   at-rest encryption (volume/TDE) from your provider.
-- Retention/deletion workflows (GDPR erasure, per-record TTL) are not yet
-  productized — deletion is possible via SQL but not a UI feature.
+- GDPR erasure anonymizes/tombstones records (name/email/role nulled,
+  `[erased]` marker, participants scrubbed) — hard deletes are unsafe
+  under the FK graph. Conversation bodies/summaries are not rewritten.
+- Automated retention policies (per-record TTL, scheduled purges) are
+  not yet productized.

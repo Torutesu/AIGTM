@@ -7,6 +7,8 @@ import { Link } from "../../../../i18n/routing";
 import { ensureDb } from "../../../../lib/db";
 import { requireSession } from "../../../../lib/session";
 import { PageHeader, Card, EmptyState } from "../_components/ui";
+import { ConfirmButton } from "../_components/confirm-button";
+import { erasePersonAction } from "../../../../lib/actions";
 
 interface PersonRow {
   id: string;
@@ -46,10 +48,18 @@ export default async function ContactsPage({
         .limit(200),
   )) as PersonRow[];
 
-  return <ContactsView rows={rows} />;
+  return <ContactsView rows={rows} locale={locale} canAct={session.role === "admin"} />;
 }
 
-function ContactsView({ rows }: { rows: PersonRow[] }) {
+function ContactsView({
+  rows,
+  locale,
+  canAct,
+}: {
+  rows: PersonRow[];
+  locale: string;
+  canAct: boolean;
+}) {
   const t = useTranslations("contacts");
   return (
     <div>
@@ -61,7 +71,7 @@ function ContactsView({ rows }: { rows: PersonRow[] }) {
       {rows.length === 0 ? (
         <EmptyState label={t("empty")} />
       ) : (
-        <Card className="overflow-hidden">
+        <Card className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-line text-left">
@@ -77,6 +87,7 @@ function ContactsView({ rows }: { rows: PersonRow[] }) {
                 <th className="px-5 py-3 font-mono text-[10.5px] font-medium tracking-label text-ink-faint uppercase">
                   {t("email")}
                 </th>
+                {canAct ? <th className="px-4 py-3" /> : null}
               </tr>
             </thead>
             <tbody>
@@ -106,6 +117,22 @@ function ContactsView({ rows }: { rows: PersonRow[] }) {
                   <td className="px-5 py-3 font-mono text-[12px] text-ink-soft">
                     {p.email ?? "—"}
                   </td>
+                  {canAct ? (
+                    <td className="px-4 py-3 text-right">
+                      {p.name === "[erased]" ? null : (
+                        <form action={erasePersonAction.bind(null, locale)}>
+                          <input type="hidden" name="personId" value={p.id} />
+                          <ConfirmButton
+                            message={t("eraseConfirm")}
+                            testId={`erase-${p.id}`}
+                            className="rounded-md px-2 py-1 font-mono text-[10.5px] tracking-[0.04em] text-red-ink uppercase hover:bg-red-ink/10"
+                          >
+                            {t("erase")}
+                          </ConfirmButton>
+                        </form>
+                      )}
+                    </td>
+                  ) : null}
                 </tr>
               ))}
             </tbody>

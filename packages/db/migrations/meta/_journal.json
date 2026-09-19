@@ -29,6 +29,20 @@
       "when": 1789797877593,
       "tag": "0003_watery_stranger",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789809802514,
+      "tag": "0004_worker_state",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789810235233,
+      "tag": "0005_conversations_external_id",
+      "breakpoints": true
     }
   ]
 }

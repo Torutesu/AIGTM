@@ -226,9 +226,11 @@ function InboxView({
                     <span className="truncate text-[14.5px] font-semibold text-ink">
                       {ev.signalName}
                     </span>
-                    <div className="flex shrink-0 items-center gap-3">
-                      <ScoreBar score={ev.score} />
-                      <span className="font-mono text-[11px] text-ink-faint">
+                    <div className="flex min-w-0 shrink items-center gap-3">
+                      <span className="shrink-0">
+                        <ScoreBar score={ev.score} />
+                      </span>
+                      <span className="min-w-0 truncate font-mono text-[11px] text-ink-faint">
                         {ev.accountName}
                         <span className="mx-2 text-line">·</span>
                         {timeAgo(ev.detectedAt, locale)}
