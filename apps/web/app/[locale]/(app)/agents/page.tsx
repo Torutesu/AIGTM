@@ -100,17 +100,12 @@ function AgentsView({
             <li key={agent.id} data-testid="agent-card">
               <Card className="flex h-full flex-col gap-4 p-5">
                 <div>
-                  <div className="flex items-center justify-between gap-3">
-                    <Link
-                      href={`/agents/${agent.id}`}
-                      className="truncate text-[15px] font-semibold text-ink hover:text-forest-deep"
-                    >
-                      {agent.name}
-                    </Link>
-                    <Chip tone="live" dot>
-                      {t("live")}
-                    </Chip>
-                  </div>
+                  <Link
+                    href={`/agents/${agent.id}`}
+                    className="block truncate text-[15px] font-semibold text-ink hover:text-forest-deep"
+                  >
+                    {agent.name}
+                  </Link>
                   <p className="mt-1.5 line-clamp-2 text-[13.5px] leading-relaxed text-ink-soft">
                     {agent.spec?.description}
                   </p>

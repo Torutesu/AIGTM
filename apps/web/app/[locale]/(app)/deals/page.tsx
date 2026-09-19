@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import { useTranslations } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
-import { asc, eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { schema, withOrg } from "@aigtm/db";
 import { Link } from "../../../../i18n/routing";
 import { ensureDb } from "../../../../lib/db";
@@ -11,7 +11,6 @@ import {
   Chip,
   Card,
   EmptyState,
-  stamp,
   type ChipTone,
 } from "../_components/ui";
 
@@ -51,11 +50,33 @@ export default async function DealsPage({
         })
         .from(schema.deals)
         .leftJoin(schema.accounts, eq(schema.deals.accountId, schema.accounts.id))
-        .orderBy(asc(schema.deals.stage))
+        .orderBy(desc(schema.deals.amount))
         .limit(100),
   )) as DealRow[];
 
-  return <DealsView locale={locale} rows={rows} />;
+  return <DealsView rows={rows} />;
+}
+
+const STAGE_ORDER = [
+  "prospect",
+  "opportunity",
+  "negotiation",
+  "won",
+  "closed_won",
+  "lost",
+  "closed_lost",
+];
+
+function pipelineRank(stage: string): number {
+  const i = STAGE_ORDER.indexOf(stage);
+  return i < 0 ? STAGE_ORDER.length : i;
+}
+
+function idleDays(lastActivityAt: Date | string | null): number | null {
+  if (!lastActivityAt) return null;
+  const d =
+    typeof lastActivityAt === "string" ? new Date(lastActivityAt) : lastActivityAt;
+  return Math.floor((Date.now() - d.getTime()) / 86400_000);
 }
 
 function stageTone(stage: string): ChipTone {
@@ -65,16 +86,21 @@ function stageTone(stage: string): ChipTone {
   return "info";
 }
 
-function DealsView({ locale, rows }: { locale: string; rows: DealRow[] }) {
+function DealsView({ rows }: { rows: DealRow[] }) {
   const t = useTranslations("deals");
+  const sorted = [...rows].sort(
+    (a, b) =>
+      pipelineRank(a.stage) - pipelineRank(b.stage) ||
+      Number(b.amount ?? 0) - Number(a.amount ?? 0),
+  );
   return (
     <div>
       <PageHeader
         eyebrow={t("eyebrow")}
         title={t("title")}
-        meta={t("totalCount", { count: rows.length })}
+        meta={t("totalCount", { count: sorted.length })}
       />
-      {rows.length === 0 ? (
+      {sorted.length === 0 ? (
         <EmptyState label={t("empty")} />
       ) : (
         <Card className="overflow-hidden">
@@ -99,7 +125,7 @@ function DealsView({ locale, rows }: { locale: string; rows: DealRow[] }) {
               </tr>
             </thead>
             <tbody>
-              {rows.map((d) => (
+              {sorted.map((d) => (
                 <tr key={d.id} className="border-b border-line-soft last:border-0 hover:bg-paper/60">
                   <td className="px-5 py-3 text-[13.5px] font-medium text-ink">{d.name}</td>
                   <td className="px-4 py-3">
@@ -120,8 +146,18 @@ function DealsView({ locale, rows }: { locale: string; rows: DealRow[] }) {
                   <td className="px-4 py-3 text-right font-mono text-[12px] text-ink tabular-nums">
                     {d.amount ? `$${Number(d.amount).toLocaleString()}` : "—"}
                   </td>
-                  <td className="px-5 py-3 font-mono text-[12px] text-ink-soft">
-                    {d.lastActivityAt ? stamp(d.lastActivityAt, locale) : "—"}
+                  <td className="px-5 py-3 font-mono text-[12px]">
+                    {(() => {
+                      const days = idleDays(d.lastActivityAt);
+                      if (days === null) return <span className="text-ink-soft">—</span>;
+                      const tone =
+                        days >= 14 ? "text-red-ink" : days >= 7 ? "text-amber-ink" : "text-ink-soft";
+                      return (
+                        <span className={`tabular-nums ${tone}`}>
+                          {t("idleDays", { days })}
+                        </span>
+                      );
+                    })()}
                   </td>
                 </tr>
               ))}

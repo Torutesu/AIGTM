@@ -48,17 +48,12 @@
     "review": "Review",
     "approve": "Approve",
     "reject": "Reject",
-    "score": "score",
-    "statPending": "Awaiting review",
-    "statSignals": "Signals · 7d",
-    "statAgents": "Agents live",
-    "statRuns": "Runs · 7d"
+    "score": "score"
   },
   "agents": {
     "eyebrow": "Agents / Library",
     "title": "Agents",
     "run": "Run now",
-    "live": "Live",
     "liveCount": "{count} live",
     "trigger": "trigger",
     "steps": "steps",
@@ -275,7 +270,8 @@
     "account": "Account",
     "stage": "Stage",
     "amount": "Amount",
-    "lastActivity": "Last activity"
+    "lastActivity": "Idle",
+    "idleDays": "{days}d"
   },
   "contacts": {
     "eyebrow": "Records / Contacts",
@@ -297,7 +293,6 @@
     "definitions": "Definitions",
     "feed": "Recent detections",
     "noEvents": "No detections yet.",
-    "watching": "Watching",
     "hits": "hits"
   },
   "audit": {

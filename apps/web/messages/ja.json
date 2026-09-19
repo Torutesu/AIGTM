@@ -48,17 +48,12 @@
     "review": "要レビュー",
     "approve": "承認",
     "reject": "却下",
-    "score": "スコア",
-    "statPending": "レビュー待ち",
-    "statSignals": "シグナル・7日",
-    "statAgents": "稼働エージェント",
-    "statRuns": "実行数・7日"
+    "score": "スコア"
   },
   "agents": {
     "eyebrow": "Agents / Library",
     "title": "エージェント",
     "run": "今すぐ実行",
-    "live": "稼働中",
     "liveCount": "{count} 件稼働中",
     "trigger": "トリガー",
     "steps": "ステップ",
@@ -275,7 +270,8 @@
     "account": "アカウント",
     "stage": "ステージ",
     "amount": "金額",
-    "lastActivity": "最終アクティビティ"
+    "lastActivity": "放置",
+    "idleDays": "{days}日"
   },
   "contacts": {
     "eyebrow": "Records / Contacts",
@@ -297,7 +293,6 @@
     "definitions": "定義",
     "feed": "最近の検出",
     "noEvents": "検出はまだありません。",
-    "watching": "監視中",
     "hits": "件ヒット"
   },
   "audit": {

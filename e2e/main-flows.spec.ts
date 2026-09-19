@@ -96,14 +96,6 @@ test("command palette opens and navigates", async ({ page }) => {
   await page.waitForURL("**/en/approvals");
 });
 
-test("inbox shows stats dashboard", async ({ page }) => {
-  await expect(
-    page.getByRole("link", { name: "Awaiting review" }),
-  ).toBeVisible();
-  await expect(page.getByRole("link", { name: "Signals · 7d" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Agents live" })).toBeVisible();
-});
-
 test("unknown record shows 404 page", async ({ page }) => {
   await page.goto("/en/accounts/00000000-0000-0000-0000-000000000000");
   await expect(page.getByText("Page not found")).toBeVisible();
@@ -591,8 +583,24 @@ test("metrics endpoint: bearer-protected prometheus exposition", async ({
 });
 
 test("admin can erase a contact; dialog cancel aborts", async ({ page }) => {
+  // throwaway fixture via the real ingest path — never touch shared seed data
+  await page.goto("/en/settings");
+  await page.getByTestId("generate-ingest-key").click();
+  await page.waitForURL("**/en/settings?k=**");
+  const key = await page.getByTestId("new-ingest-key").textContent();
+  const mk = await page.request.post("/api/ingest", {
+    headers: { authorization: `Bearer ${key}` },
+    data: {
+      type: "person",
+      name: "Erase Me",
+      email: "erase-me@throwaway.example",
+      role: "Fixture",
+    },
+  });
+  expect(mk.status()).toBe(200);
+
   await page.goto("/en/contacts");
-  const row = page.locator("tr", { hasText: "rin@acme-robotics.example" });
+  const row = page.locator("tr", { hasText: "erase-me@throwaway.example" });
   await expect(row).toBeVisible();
 
   // cancel: nothing happens
@@ -610,8 +618,23 @@ test("admin can erase a contact; dialog cancel aborts", async ({ page }) => {
 });
 
 test("admin can erase an account from account 360", async ({ page }) => {
+  await page.goto("/en/settings");
+  await page.getByTestId("generate-ingest-key").click();
+  await page.waitForURL("**/en/settings?k=**");
+  const key = await page.getByTestId("new-ingest-key").textContent();
+  const mk = await page.request.post("/api/ingest", {
+    headers: { authorization: `Bearer ${key}` },
+    data: {
+      type: "account",
+      name: "Erase Me Co",
+      domain: "erase-me-co.example",
+      industry: "fixture",
+    },
+  });
+  expect(mk.status()).toBe(200);
+
   await page.goto("/en/accounts");
-  await page.locator('main a[href*="/accounts/"]').first().click();
+  await page.getByRole("link", { name: "Erase Me Co" }).click();
   await page.waitForURL(/\/en\/accounts\/.+/);
   page.on("dialog", (d) => void d.accept());
   await page.getByTestId("erase-account").click();

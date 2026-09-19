@@ -7,7 +7,6 @@ import { ensureDb } from "../../../../lib/db";
 import { requireSession } from "../../../../lib/session";
 import {
   PageHeader,
-  Chip,
   Card,
   EmptyState,
   ScoreBar,
@@ -117,12 +116,7 @@ function SignalsView({
             {signals.map((s) => (
               <li key={s.id} data-testid="signal-def">
                 <Card className="p-5">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="truncate text-[14.5px] font-semibold text-ink">{s.name}</p>
-                    <Chip tone="live" dot>
-                      {t("watching")}
-                    </Chip>
-                  </div>
+                  <p className="truncate text-[14.5px] font-semibold text-ink">{s.name}</p>
                   <p className="mt-1.5 line-clamp-2 text-[13px] leading-relaxed text-ink-soft">
                     {s.spec?.description}
                   </p>
