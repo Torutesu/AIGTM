@@ -35,6 +35,10 @@ export interface OrgProviderConfig {
     clientId?: string;
     clientSecret?: string;
     refreshToken?: string;
+    /** Google account the workspace was connected as (plaintext, display only). */
+    email?: string;
+    /** RFC3339 — when the OAuth connect flow completed. */
+    connectedAt?: string;
   };
   /** RFC3339 — last successful connector sync (plaintext is fine). */
   connectorsLastSyncAt?: string;

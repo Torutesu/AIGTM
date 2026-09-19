@@ -108,15 +108,23 @@ Org-scoped, secrets encrypted with `AIGTM_MASTER_KEY` (AES-256-GCM):
 - **Slack webhook** — incoming-webhook URL for `post_slack` actions.
 - **Action webhook** — generic JSON endpoint for `crm_write`/`create_task`
   and any other outbox kind.
-- **Google Workspace** — OAuth client id/secret + a refresh token with
-  `gmail.readonly` and `calendar.readonly` scopes. The worker syncs Gmail
-  threads and Calendar events into `conversations` every tick, throttled to
-  once per 5 minutes per org. Failures are logged per-org and isolated.
+- **Google Workspace** — one-click connect for admins: **Settings →
+  Integrations → Connect Google Workspace** runs a full OAuth flow
+  (`access_type=offline` + `prompt=consent`, `gmail.readonly` +
+  `calendar.readonly` scopes) and stores the refresh token encrypted on the
+  org. Reuses the deployment `GOOGLE_OAUTH_CLIENT_*` — register
+  `$AIGTM_BASE_URL/api/google/connect/callback` as a second authorized
+  redirect URI in the same Google client. Manual credential paste remains
+  available under "Manual credentials". The worker syncs Gmail threads and
+  Calendar events into `conversations` every tick, throttled to once per 5
+  minutes per org. Failures are logged per-org and isolated.
 
 ### Google SSO
 
 Set `GOOGLE_OAUTH_CLIENT_ID`/`GOOGLE_OAUTH_CLIENT_SECRET` and register
-`$AIGTM_BASE_URL/api/auth/google/callback` as an authorized redirect URI.
+`$AIGTM_BASE_URL/api/auth/google/callback` as an authorized redirect URI
+(the Workspace connector flow uses a second URI —
+`/api/google/connect/callback` — in the same client).
 Existing users sign in by email match; new users are provisioned into the
 org only when exactly one org exists (multi-org deployments reject with
 `sso_no_org` — no arbitrary tenant assignment).

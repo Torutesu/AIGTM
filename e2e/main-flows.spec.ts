@@ -494,3 +494,58 @@ test("ingest webhook: generate key, POST signal event, it lands", async ({ page 
   await page.goto("/en/contacts");
   await expect(page.getByText("Rin E2E")).toBeVisible();
 });
+
+test("google connect: button renders and starts OAuth with correct params", async ({
+  page,
+}) => {
+  await page.goto("/en/settings");
+  const btn = page.getByTestId("connect-google");
+  await expect(btn).toBeVisible();
+  await expect(btn).toHaveText(/connect google/i);
+
+  // start route 302s to accounts.google.com with offline+consent + scopes
+  const res = await page.request.get("/api/google/connect", {
+    maxRedirects: 0,
+  });
+  expect(res.status()).toBe(307);
+  const loc = new URL(res.headers()["location"]);
+  expect(loc.origin + loc.pathname).toBe(
+    "https://accounts.google.com/o/oauth2/v2/auth",
+  );
+  expect(loc.searchParams.get("client_id")).toBe("e2e-google-client");
+  expect(loc.searchParams.get("access_type")).toBe("offline");
+  expect(loc.searchParams.get("prompt")).toBe("consent");
+  expect(loc.searchParams.get("redirect_uri")).toMatch(
+    /^https?:\/\/[^/]+\/api\/google\/connect\/callback$/,
+  );
+  const scope = loc.searchParams.get("scope") ?? "";
+  expect(scope).toContain("gmail.readonly");
+  expect(scope).toContain("calendar.readonly");
+  expect(loc.searchParams.get("state")).toBeTruthy();
+
+  // callback with a bogus state is rejected back to settings
+  const bad = await page.request.get(
+    "/api/google/connect/callback?code=x&state=bogus",
+    { maxRedirects: 0 },
+  );
+  expect(bad.status()).toBe(307);
+  expect(bad.headers()["location"]).toContain(
+    "/en/settings?error=gws_state",
+  );
+});
+
+test("viewer cannot start google connect", async ({ browser }) => {
+  const ctx2 = await browser.newContext();
+  const page = await ctx2.newPage();
+  await page.goto("/en/login");
+  await page.fill('input[name="email"]', "viewer@aigtm.local");
+  await page.fill('input[name="password"]', "viewer-password");
+  await page.click('button[type="submit"]');
+  await page.waitForURL(/\/en\/inbox/);
+  const res = await page.request.get("/api/google/connect", {
+    maxRedirects: 0,
+  });
+  expect(res.status()).toBe(307);
+  expect(res.headers()["location"]).toContain("gws_forbidden");
+  await ctx2.close();
+});

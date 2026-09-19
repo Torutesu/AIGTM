@@ -208,7 +208,7 @@
     "actionWebhook": "アクション webhook URL",
     "actionPlaceholder": "https://…",
     "google": "Google Workspace (Gmail + Calendar)",
-    "googleNote": "gmail.readonly + calendar.readonly スコープの OAuth クライアントID/シークレット/リフレッシュトークン。暗号化して保存し、worker が同期します。",
+    "googleNote": "ワンクリックで接続（推奨）するか、OAuth 認証情報を手動で貼り付けます。gmail.readonly + calendar.readonly スコープが必要。暗号化して保存し、worker が5分ごとに同期します。",
     "clientId": "クライアントID",
     "clientSecret": "クライアントシークレット",
     "refreshToken": "リフレッシュトークン",
@@ -216,7 +216,18 @@
     "budget": "月次 AI 予算 (USD)",
     "budgetNote": "当月の run コストがこれを超えると org の新規 LLM ステップを止めます。0 = 無制限。",
     "budgetPlaceholder": "0.00",
-    "saved": "保存しました"
+    "saved": "保存しました",
+    "connectGoogle": "Google Workspace を接続",
+    "reconnectGoogle": "再接続",
+    "googleManual": "手動で認証情報を入力（上級者向け）",
+    "gwsConnected": "Google Workspace を接続しました",
+    "gwsErrors": {
+      "gws_state": "Google 接続に失敗しました — state が無効または期限切れです。もう一度お試しください。",
+      "gws_exchange": "Google 接続に失敗しました — トークン交換エラーです。もう一度お試しください。",
+      "gws_no_refresh": "Google がリフレッシュトークンを返しませんでした。再接続してオフラインアクセスを許可してください。",
+      "gws_forbidden": "Google Workspace を接続できるのは管理者のみです。",
+      "gws_unconfigured": "このデプロイでは Google OAuth が設定されていません。"
+    }
   },
   "account": {
     "eyebrow": "Records / Account",

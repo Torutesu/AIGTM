@@ -60,10 +60,10 @@ export default async function SettingsPage({
   searchParams,
 }: {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ k?: string }>;
+  searchParams: Promise<{ k?: string; gws?: string; error?: string }>;
 }) {
   const { locale } = await params;
-  const { k: newKey } = await searchParams;
+  const { k: newKey, gws, error } = await searchParams;
   setRequestLocale(locale);
   const session = await requireSession(locale);
 
@@ -126,8 +126,13 @@ export default async function SettingsPage({
           clientId: masked(cfg.google.clientId),
           clientSecret: masked(cfg.google.clientSecret),
           refreshToken: masked(cfg.google.refreshToken),
+          email: cfg.google.email ?? null,
         }
       : null,
+    googleOauthReady: !!(
+      process.env.GOOGLE_OAUTH_CLIENT_ID &&
+      process.env.GOOGLE_OAUTH_CLIENT_SECRET
+    ),
   };
   const budgetUsd =
     org?.budgetMonthlyCents != null
@@ -145,6 +150,8 @@ export default async function SettingsPage({
       newKey={newKey ?? null}
       integrations={integrations}
       budgetUsd={budgetUsd}
+      gwsConnected={gws === "connected"}
+      gwsError={error?.startsWith("gws_") ? error : null}
     />
   );
 }
@@ -172,6 +179,8 @@ function SettingsView({
   newKey,
   integrations,
   budgetUsd,
+  gwsConnected,
+  gwsError,
 }: {
   locale: string;
   members: MemberRow[];
@@ -187,9 +196,13 @@ function SettingsView({
       clientId: string | null;
       clientSecret: string | null;
       refreshToken: string | null;
+      email: string | null;
     } | null;
+    googleOauthReady: boolean;
   };
   budgetUsd: string;
+  gwsConnected: boolean;
+  gwsError: string | null;
 }) {
   const t = useTranslations("settings");
   return (
@@ -211,6 +224,19 @@ function SettingsView({
           >
             {newKey}
           </code>
+        </Card>
+      ) : null}
+
+      {gwsConnected ? (
+        <Card className="mb-8 border-forest/40 bg-mint/30 px-5 py-4">
+          <p className="font-mono text-[11px] text-ink">{t("gwsConnected")}</p>
+        </Card>
+      ) : null}
+      {gwsError ? (
+        <Card className="mb-8 border-red-ink/40 px-5 py-4">
+          <p className="font-mono text-[11px] text-red-ink">
+            {t(`gwsErrors.${gwsError}`)}
+          </p>
         </Card>
       ) : null}
 
@@ -397,10 +423,23 @@ function SettingsView({
             </p>
             <div className="flex flex-wrap items-center gap-3">
               {integrations.google ? (
-                <Chip tone="good">{t("configured")}</Chip>
+                <Chip tone="good">
+                  {integrations.google.email ?? t("configured")}
+                </Chip>
               ) : (
                 <Chip tone="neutral">{t("notSet")}</Chip>
               )}
+              {integrations.googleOauthReady ? (
+                <a
+                  href="/api/google/connect"
+                  data-testid="connect-google"
+                  className="rounded-md border border-forest px-2.5 py-1.5 font-mono text-[10.5px] tracking-[0.04em] text-forest uppercase hover:bg-forest/10"
+                >
+                  {integrations.google
+                    ? t("reconnectGoogle")
+                    : t("connectGoogle")}
+                </a>
+              ) : null}
               {integrations.google ? (
                 <button
                   type="submit"
@@ -413,29 +452,34 @@ function SettingsView({
                 </button>
               ) : null}
             </div>
-            <div className="mt-3 flex flex-wrap gap-3">
-              <input
-                name="googleClientId"
-                type="password"
-                autoComplete="off"
-                placeholder={t("clientId")}
-                className="w-64 rounded-lg border border-line bg-paper px-3 py-1.5 font-mono text-[12px] text-ink outline-none placeholder:text-ink-faint focus:border-forest"
-              />
-              <input
-                name="googleClientSecret"
-                type="password"
-                autoComplete="off"
-                placeholder={t("clientSecret")}
-                className="w-64 rounded-lg border border-line bg-paper px-3 py-1.5 font-mono text-[12px] text-ink outline-none placeholder:text-ink-faint focus:border-forest"
-              />
-              <input
-                name="googleRefreshToken"
-                type="password"
-                autoComplete="off"
-                placeholder={t("refreshToken")}
-                className="w-64 rounded-lg border border-line bg-paper px-3 py-1.5 font-mono text-[12px] text-ink outline-none placeholder:text-ink-faint focus:border-forest"
-              />
-            </div>
+            <details className="mt-3">
+              <summary className="cursor-pointer font-mono text-[10.5px] text-ink-faint uppercase tracking-[0.04em]">
+                {t("googleManual")}
+              </summary>
+              <div className="mt-2 flex flex-wrap gap-3">
+                <input
+                  name="googleClientId"
+                  type="password"
+                  autoComplete="off"
+                  placeholder={t("clientId")}
+                  className="w-64 rounded-lg border border-line bg-paper px-3 py-1.5 font-mono text-[12px] text-ink outline-none placeholder:text-ink-faint focus:border-forest"
+                />
+                <input
+                  name="googleClientSecret"
+                  type="password"
+                  autoComplete="off"
+                  placeholder={t("clientSecret")}
+                  className="w-64 rounded-lg border border-line bg-paper px-3 py-1.5 font-mono text-[12px] text-ink outline-none placeholder:text-ink-faint focus:border-forest"
+                />
+                <input
+                  name="googleRefreshToken"
+                  type="password"
+                  autoComplete="off"
+                  placeholder={t("refreshToken")}
+                  className="w-64 rounded-lg border border-line bg-paper px-3 py-1.5 font-mono text-[12px] text-ink outline-none placeholder:text-ink-faint focus:border-forest"
+                />
+              </div>
+            </details>
           </div>
 
           <SubmitButton

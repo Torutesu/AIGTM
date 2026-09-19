@@ -208,7 +208,7 @@
     "actionWebhook": "Action webhook URL",
     "actionPlaceholder": "https://…",
     "google": "Google Workspace (Gmail + Calendar)",
-    "googleNote": "OAuth client ID / secret / refresh token with gmail.readonly + calendar.readonly scopes. Stored encrypted; synced by the worker.",
+    "googleNote": "Connect with one click (recommended) or paste OAuth credentials manually. Needs gmail.readonly + calendar.readonly scopes. Stored encrypted; synced by the worker every 5 minutes.",
     "clientId": "Client ID",
     "clientSecret": "Client secret",
     "refreshToken": "Refresh token",
@@ -216,7 +216,18 @@
     "budget": "Monthly AI budget (USD)",
     "budgetNote": "Stops new LLM steps for the org once the month's run cost exceeds this. 0 = unlimited.",
     "budgetPlaceholder": "0.00",
-    "saved": "Saved"
+    "saved": "Saved",
+    "connectGoogle": "Connect Google Workspace",
+    "reconnectGoogle": "Reconnect",
+    "googleManual": "Manual credentials (advanced)",
+    "gwsConnected": "Google Workspace connected",
+    "gwsErrors": {
+      "gws_state": "Google connection failed — invalid or expired state. Try again.",
+      "gws_exchange": "Google connection failed — token exchange error. Try again.",
+      "gws_no_refresh": "Google did not return a refresh token. Reconnect and grant offline access.",
+      "gws_forbidden": "Only admins can connect Google Workspace.",
+      "gws_unconfigured": "Google OAuth is not configured on this deployment."
+    }
   },
   "account": {
     "eyebrow": "Records / Account",

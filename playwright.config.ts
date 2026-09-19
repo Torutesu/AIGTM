@@ -18,6 +18,10 @@ export default defineConfig({
     env: {
       DATABASE_URL: "pglite://./.pglite-e2e",
       AIGTM_E2E: "1",
+      // dummy values so the Google SSO/connect buttons render; the OAuth
+      // handshake itself is only exercised up to the Google redirect
+      GOOGLE_OAUTH_CLIENT_ID: "e2e-google-client",
+      GOOGLE_OAUTH_CLIENT_SECRET: "e2e-google-secret",
     },
   },
 });

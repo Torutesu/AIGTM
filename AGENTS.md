@@ -27,5 +27,5 @@ AI-native GTM OS を作る。ベンチマークは Frontrunner (usefr.com)。詳
 - run の tx abort（ツールの SQL エラー等）でも rejected run + audit が別 tx で残る。tick 内の1 run のクラッシュは他を巻き込まない
 - `evalScore` = 成功ステップ率（実測値）。`AIGTM_EVAL_LLM_JUDGE=1` で完成 run に LLM-judge 評価を `eval_notes` へ追記（judge コストも `cost_cents` に計上）
 - org 月次予算: `organizations.budget_monthly_cents`（Settings で設定）。当月 `runs.cost_cents` 合計が予算超過なら新規 LLM ステップ前に run を rejected
-- Google Workspace 取り込み: Settings「Integrations」に client id/secret + refresh token（gmail.readonly, calendar.readonly スコープ）を登録 → worker が5分スロットルで Gmail/Calendar → conversations に同期。失敗は org 単位で隔離
+- Google Workspace 取り込み: Settings「Integrations」→「Connect Google Workspace」で OAuth 接続（`/api/google/connect` → callback が refresh token を暗号化保存）か手動貼付 → worker が5分スロットルで Gmail/Calendar → conversations に同期。失敗は org 単位で隔離
 - Google SSO: `GOOGLE_OAUTH_CLIENT_ID/SECRET` 設定時にログイン画面へボタン表示。`ssoSignIn` は既存ユーザー照合 → 新規は org が1つの時のみ自動プロビジョン（複数 org で曖昧なら `sso_no_org` で拒否 — 勝手にテナントを選ばない）
