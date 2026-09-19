@@ -1,4 +1,4 @@
-import { and, eq, lt, ne, desc } from "drizzle-orm";
+import { and, eq, lt, ne, desc, isNull } from "drizzle-orm";
 import { schema } from "@aigtm/db";
 
 /**
@@ -28,6 +28,7 @@ export const tools: Record<string, ToolFn> = {
   },
 
   "accounts.lookup": async (tx, orgId, input) => {
+    if (!input.accountId) throw new Error("accounts.lookup requires accountId");
     const [account] = await tx
       .select()
       .from(schema.accounts)
@@ -69,6 +70,7 @@ export const tools: Record<string, ToolFn> = {
   },
 
   "people.for_account": async (tx, orgId, input) => {
+    if (!input.accountId) throw new Error("people.for_account requires accountId");
     return tx
       .select()
       .from(schema.people)
@@ -81,6 +83,7 @@ export const tools: Record<string, ToolFn> = {
   },
 
   "knowledge.recent": async (tx, orgId, input) => {
+    if (!input.subjectId) throw new Error("knowledge.recent requires subjectId");
     return tx
       .select()
       .from(schema.knowledge)
@@ -89,6 +92,7 @@ export const tools: Record<string, ToolFn> = {
           eq(schema.knowledge.orgId, orgId),
           eq(schema.knowledge.subjectType, String(input.subjectType ?? "account")),
           eq(schema.knowledge.subjectId, String(input.subjectId)),
+          isNull(schema.knowledge.validTo),
         ),
       )
       .orderBy(desc(schema.knowledge.createdAt))

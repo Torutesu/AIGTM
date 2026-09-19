@@ -6,6 +6,7 @@ import { sql } from "drizzle-orm";
  * assert coverage.
  */
 export const TENANT_TABLES = [
+  "memberships",
   "accounts",
   "people",
   "deals",

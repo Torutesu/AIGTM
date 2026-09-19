@@ -444,4 +444,53 @@ test("ingest webhook: generate key, POST signal event, it lands", async ({ page 
   });
   const m2body = await m2.json();
   expect(m2body.inserted).toBe(0); // deduped
+
+  // account upsert by domain → visible on Accounts page
+  const acc = await page.request.post("/api/ingest", {
+    headers: { authorization: `Bearer ${key}` },
+    data: {
+      type: "account",
+      name: "E2E Ingested Corp",
+      domain: "e2e-ingested.example",
+      industry: "Robotics",
+      icpFitScore: 77,
+    },
+  });
+  expect(acc.status()).toBe(200);
+  const accBody = await acc.json();
+  expect(accBody.created).toBe(true);
+  // second POST upserts, doesn't duplicate
+  const acc2 = await page.request.post("/api/ingest", {
+    headers: { authorization: `Bearer ${key}` },
+    data: { type: "account", name: "E2E Ingested Corp", domain: "e2e-ingested.example" },
+  });
+  expect((await acc2.json()).created).toBe(false);
+  await page.goto("/en/accounts");
+  await expect(page.getByText("E2E Ingested Corp")).toBeVisible();
+
+  // named event lands as signal_events with eventType (fires matching agents)
+  const ev = await page.request.post("/api/ingest", {
+    headers: { authorization: `Bearer ${key}` },
+    data: {
+      type: "event",
+      name: "inbound.submitted",
+      accountDomain: "e2e-ingested.example",
+      evidence: { form: "contact-us" },
+    },
+  });
+  expect(ev.status()).toBe(200);
+
+  // person upsert attaches to account by email domain
+  const per = await page.request.post("/api/ingest", {
+    headers: { authorization: `Bearer ${key}` },
+    data: {
+      type: "person",
+      name: "Rin E2E",
+      email: "rin@e2e-ingested.example",
+      role: "VP Sales",
+    },
+  });
+  expect(per.status()).toBe(200);
+  await page.goto("/en/contacts");
+  await expect(page.getByText("Rin E2E")).toBeVisible();
 });

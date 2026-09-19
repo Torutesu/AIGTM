@@ -10,6 +10,7 @@
 import { createDb, migrate } from "@aigtm/db";
 import { tick } from "./scheduler";
 import { defaultRouter } from "./model";
+import { syncSpecs } from "./spec-sync";
 import { logEvent } from "./log";
 
 const intervalMs = Number(process.env.AIGTM_WORKER_INTERVAL_MS ?? 15_000);
@@ -17,6 +18,7 @@ const once = process.argv.includes("--once");
 
 const handle = await createDb();
 await migrate(handle);
+await syncSpecs(handle); // repo specs (agents/signals yaml) → every org
 
 // Multi-replica safety: only one worker ticks at a time. The pg advisory
 // lock is session-scoped, so a crashed holder releases automatically.

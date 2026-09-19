@@ -18,3 +18,11 @@ AI-native GTM OS を作る。ベンチマークは Frontrunner (usefr.com)。詳
 - **Signal**: 「定義 → 継続評価 → アカウント解決 → ICP採点」までを含む宣言的検知器
 - **Run**: エージェント spec の1回の実行。step の連鎖、各 step は tool call または LLM reasoning
 - **Compound/Learn**: run の成果を `Knowledge` (bitemporal, provenance 付き) に還元すること
+
+## ランタイムの接続点（嘘をつかないための地図）
+
+- `syncSpecs()`（agent-runtime/spec-sync）が `agents/*.yaml`・`signals/*.yaml` を全 org に upsert — worker 起動時・`ensureDb`・`pnpm db:sync`・`aigtm sync` で実行。yaml が正典、DB はレプリカ
+- `internal_sor` シグナルは worker tick で評価（`deal.last_activity_at` 系）。外部 source（job_boards 等）はコネクタ待ち — webhook `type: "event"`/`"signal_event"` が代替経路
+- Outbox dispatch は実装済み: `AIGTM_EMAIL_PROVIDER=resend` で email kind を実送信（失敗→`failed`→worker sweep が5回までリトライ）。未設定時は `dispatched` + audit `mock:true`（監査に残るので誤魔化さない）
+- run の tx abort（ツールの SQL エラー等）でも rejected run + audit が別 tx で残る。tick 内の1 run のクラッシュは他を巻き込まない
+- `evalScore` = 成功ステップ率（暫定の実測値。LLM-judge eval は未実装）

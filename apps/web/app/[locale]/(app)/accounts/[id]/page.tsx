@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import { useTranslations } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
-import { desc, eq, and } from "drizzle-orm";
+import { desc, eq, and, isNull } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { schema, withOrg } from "@aigtm/db";
 import { ensureDb } from "../../../../../lib/db";
@@ -110,6 +110,7 @@ export default async function AccountDetailPage({
           and(
             eq(schema.knowledge.subjectType, "account"),
             eq(schema.knowledge.subjectId, id),
+            isNull(schema.knowledge.validTo), // bitemporal: current claims only
           ),
         )
         .orderBy(desc(schema.knowledge.validFrom))) as KnowledgeRow[];

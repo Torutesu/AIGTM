@@ -1,0 +1,27 @@
+name: Account Research
+description: Researches the account behind a fresh signal event, grades ICP fit, and creates a review task with the findings.
+trigger:
+  type: event
+  event: signal_event
+steps:
+  - id: account
+    kind: tool
+    tool: accounts.lookup
+    input:
+      accountId: $trigger.accountId
+    output:
+      account: object
+  - id: grade
+    kind: llm
+    model: reasoning
+    prompt: prompts/grade-icp.md
+    output:
+      icp_fit: string
+      disposition: string
+      reason: string
+approval:
+  before_act: required
+act:
+  - type: create_task
+    assignee: account.owner
+learn: []

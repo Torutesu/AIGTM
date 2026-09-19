@@ -83,7 +83,7 @@ describe("RLS org isolation", () => {
         FROM pg_class WHERE relname IN (${names})`),
     );
     const rows = (result as { rows: { relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }[] }).rows;
-    expect(rows).toHaveLength(14);
+    expect(rows).toHaveLength(TENANT_TABLES.length);
     for (const r of rows) {
       expect(r.relrowsecurity, r.relname).toBe(true);
       expect(r.relforcerowsecurity, r.relname).toBe(true);

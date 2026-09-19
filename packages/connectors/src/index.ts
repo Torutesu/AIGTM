@@ -156,6 +156,114 @@ export async function ingestSignalEvent(
   });
 }
 
+/** Upsert an account by domain (webhook/connector write path). */
+export async function upsertAccount(
+  handle: DbHandle,
+  ctx: OrgContext,
+  a: {
+    name: string;
+    domain?: string;
+    industry?: string;
+    icpFitScore?: number;
+    stage?: string;
+  },
+) {
+  return withOrg(handle, ctx, async (tx) => {
+    const existing = a.domain
+      ? await tx
+          .select({ id: schema.accounts.id })
+          .from(schema.accounts)
+          .where(
+            and(
+              eq(schema.accounts.orgId, ctx.orgId),
+              eq(schema.accounts.domain, a.domain),
+            ),
+          )
+          .limit(1)
+      : [];
+    const values: Record<string, unknown> = { name: a.name };
+    if (a.industry) values.industry = a.industry;
+    if (a.stage) values.stage = a.stage;
+    if (a.icpFitScore != null) values.icpFitScore = String(a.icpFitScore);
+    if (existing.length) {
+      await tx
+        .update(schema.accounts)
+        .set(values)
+        .where(eq(schema.accounts.id, existing[0].id));
+      return { id: existing[0].id, created: false };
+    }
+    const [row] = await tx
+      .insert(schema.accounts)
+      .values({ orgId: ctx.orgId, domain: a.domain ?? null, ...values })
+      .returning();
+    return { id: row.id, created: true };
+  });
+}
+
+/** Upsert a person by email; attaches to an account by domain when known. */
+export async function upsertPerson(
+  handle: DbHandle,
+  ctx: OrgContext,
+  p: {
+    name: string;
+    email?: string;
+    role?: string;
+    accountId?: string;
+  },
+) {
+  return withOrg(handle, ctx, async (tx) => {
+    let accountId = p.accountId ?? null;
+    if (!accountId && p.email?.includes("@")) {
+      const domain = p.email.split("@")[1];
+      const [a] = await tx
+        .select({ id: schema.accounts.id })
+        .from(schema.accounts)
+        .where(
+          and(
+            eq(schema.accounts.orgId, ctx.orgId),
+            eq(schema.accounts.domain, domain),
+          ),
+        )
+        .limit(1);
+      accountId = a?.id ?? null;
+    }
+    const existing = p.email
+      ? await tx
+          .select({ id: schema.people.id })
+          .from(schema.people)
+          .where(
+            and(
+              eq(schema.people.orgId, ctx.orgId),
+              eq(schema.people.email, p.email),
+            ),
+          )
+          .limit(1)
+      : [];
+    if (existing.length) {
+      await tx
+        .update(schema.people)
+        .set({
+          name: p.name,
+          ...(p.role ? { role: p.role } : {}),
+          ...(accountId ? { accountId } : {}),
+        })
+        .where(eq(schema.people.id, existing[0].id));
+      return { id: existing[0].id, created: false };
+    }
+    const [row] = await tx
+      .insert(schema.people)
+      .values({
+        orgId: ctx.orgId,
+        accountId,
+        name: p.name,
+        email: p.email ?? null,
+        role: p.role ?? null,
+      })
+      .returning();
+    return { id: row.id, created: true };
+  });
+}
+
 /**
  * Ingest messages into conversations via a connector (mock in Phase 0).
  */

@@ -36,6 +36,9 @@ Everything below reflects what was actually run — not aspirational config.
 | `AIGTM_ANTHROPIC_MODEL_<ROLE>` / `AIGTM_OPENAI_MODEL_<ROLE>` | per-provider defaults | Override the concrete model id per role. |
 | `AIGTM_WORKER_INTERVAL_MS` | `15000` | Scheduler poll interval for the trigger worker. |
 | `AIGTM_RUN_COST_LIMIT_CENTS` | `0` (unlimited) | Per-run spend brake. A run that would cross the ceiling is rejected before its next LLM step; partial spend is recorded on `runs.cost_cents`. |
+| `AIGTM_EMAIL_PROVIDER` | unset | `resend` enables real outbound dispatch for email-kind outbox actions. Unset → dispatch is mock (state transition + `mock: true` audit only). |
+| `AIGTM_RESEND_API_KEY` | unset | Resend API key. Required when `AIGTM_EMAIL_PROVIDER=resend`. |
+| `AIGTM_EMAIL_FROM` | unset | Verified Resend sender address (`AIGTM <ops@yourdomain>`). Required when resend is on. |
 | `AIGTM_E2E` (internal) | — | Set by Playwright's webServer env via `DATABASE_URL=pglite://./.pglite-e2e`. |
 
 ### Model providers (BYOK)
@@ -55,6 +58,38 @@ it per org, so one deployment serves tenants on different providers. With no
 keys at all every role falls back to `MockProvider` — deterministic and fully
 offline. LLM step prompts may be inline strings or repo-relative paths
 (`prompts/*.md`).
+
+### Declarative specs (agents/signals YAML)
+
+`agents/*.yaml`, `signals/*.yaml`, `prompts/*.md` are the Git-managed source
+of truth. `syncSpecs()` upserts every spec into every org (keyed on name,
+preserving `enabled`) — it runs at worker boot, on first web request
+(`ensureDb`), after `pnpm db:seed`, or manually:
+
+```bash
+DATABASE_URL=... pnpm db:sync    # or `docker run ... aigtm sync`
+```
+
+Enabled `signals` with `internal_sor` sources are evaluated by the worker
+each tick (e.g. `watch: deal.last_activity_at older_than_days: 14` → deduped
+`signal_event` per deal via `evidence.fingerprint`), which fires
+`event: signal_event` agents and honors `enqueue_agent` actions. External
+source types (`job_boards`, `press`, …) require connectors — webhook ingest
+(`POST /api/ingest`, key from Settings → Inbound webhook) covers them today.
+
+### Outbound dispatch (Outbox)
+
+Approving an approval releases its outbox row; `dispatchOutbox` then delivers:
+
+- **email kinds** (`send_email`, `draft_email`) with
+  `AIGTM_EMAIL_PROVIDER=resend` → real `api.resend.com/emails` call. Payload
+  contract: `to`/`subject`/`body` (edited body wins; `to` accepts
+  `Name · email` / `Name <email>`). Success records the provider message id;
+  failure sets status `failed` (bounded retries by the worker's outbox sweep,
+  max 5 attempts).
+- **everything else** — transitions to `dispatched` with `mock: true` in the
+  audit trail until a connector lands. The approval gate itself is always
+  real regardless of provider configuration.
 
 ### Trigger worker
 
@@ -162,6 +197,7 @@ docker run -e DATABASE_URL=... aigtm            # web on :3000
 docker run -e DATABASE_URL=... aigtm worker     # trigger worker
 docker run -e DATABASE_URL=... aigtm migrate    # migrations + RLS
 docker run -e DATABASE_URL=... aigtm seed       # + demo seed
+docker run -e DATABASE_URL=... aigtm sync       # yaml specs → orgs
 ```
 
 Full local stack (db + migrate + seed + web + worker):
@@ -184,6 +220,15 @@ docker compose --profile app up --build
   - `{"type":"signal_event","signalName"|"signalId","accountDomain"|"accountId",
      "score":…,"evidence":{…}}` → `signal_events`; qualifying events fire
      `event: signal_event` agents on the next worker tick
+  - `{"type":"event","name":"inbound.submitted","accountDomain"|"accountId",
+     "score":…,"evidence":{…}}` → `signal_events` with
+     `evidence.eventType = name`; fires agents whose `trigger.event` equals
+     `name` (any string, not just `signal_event`)
+  - `{"type":"account","name":…,"domain":…,"industry":…,"icpFitScore":…}` →
+     upserts `accounts` keyed on domain
+  - `{"type":"person","name":…,"email":…,"role":…,"accountId":…}` → upserts
+     `people` keyed on email; auto-attaches to the account matching the
+     email domain
   Both write `ingest.*` audit events. This is the real capture path until
   native connectors ship — point Zapier/n8n/cron jobs at it.
 - Security headers on all routes: `X-Content-Type-Options: nosniff`,

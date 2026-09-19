@@ -40,7 +40,9 @@ export async function executeRun(
   opts: ExecuteRunOptions,
   router = new ModelRouter(),
 ) {
-  return withOrg(handle, { ...ctx, actorType: ctx.actorType ?? "user" }, async (tx) => {
+  const runId = crypto.randomUUID();
+  try {
+    return await withOrg(handle, { ...ctx, actorType: ctx.actorType ?? "user" }, async (tx) => {
     // 1. resolve spec
     let spec: AgentSpec;
     let agentId = opts.agentId;
@@ -63,6 +65,7 @@ export async function executeRun(
     const [run] = await tx
       .insert(schema.runs)
       .values({
+        id: runId,
         orgId: ctx.orgId,
         agentId,
         triggerKind: opts.triggerKind,
@@ -81,6 +84,7 @@ export async function executeRun(
       trigger: opts.triggerContext ?? {},
       steps: {} as Record<string, unknown>,
     };
+    let stepsDone = 0;
     let tokensIn = 0,
       tokensOut = 0,
       costCents = 0;
@@ -118,6 +122,7 @@ export async function executeRun(
           }
 
           (context.steps as Record<string, unknown>)[step.id] = output;
+          stepsDone += 1;
           tokensIn += stepIn;
           tokensOut += stepOut;
           costCents += estimateCostCents(model, stepIn, stepOut);
@@ -166,7 +171,6 @@ export async function executeRun(
               action: action.type,
               assignee: action.assignee ?? null,
               context: context.steps,
-              mock: true, // Phase 0: dispatched actions are simulated only
             },
             status: approvalRequired ? "pending_approval" : "released",
           })
@@ -204,7 +208,7 @@ export async function executeRun(
         }
       }
 
-      // 6. close run
+      // 6. close run — evalScore = fraction of steps fulfilled (1 = clean)
       await tx
         .update(schema.runs)
         .set({
@@ -213,6 +217,7 @@ export async function executeRun(
           tokensIn,
           tokensOut,
           costCents: costCents.toFixed(4),
+          evalScore: (stepsDone / Math.max(spec.steps.length, 1)).toFixed(3),
         })
         .where(eq(schema.runs.id, run.id));
       await audit(tx, ctx, {
@@ -245,6 +250,7 @@ export async function executeRun(
           tokensIn,
           tokensOut,
           costCents: costCents.toFixed(4),
+          evalScore: (stepsDone / Math.max(spec.steps.length, 1)).toFixed(3),
         })
         .where(eq(schema.runs.id, run.id));
       await audit(tx, ctx, {
@@ -271,6 +277,48 @@ export async function executeRun(
       return { runId: run.id, status: "rejected" as const, error: message };
     }
   });
+  } catch (err) {
+    // The run tx aborted mid-flight (e.g. a tool's SQL error poisoned the
+    // transaction) — its inserts rolled back. Persist the failure in a
+    // fresh transaction so a crashed run is never invisible.
+    const message = err instanceof Error ? err.message : String(err);
+    try {
+      await withOrg(
+        handle,
+        { ...ctx, actorType: "system" },
+        async (tx) => {
+          if (opts.agentId) {
+            await tx
+              .insert(schema.runs)
+              .values({
+                id: runId,
+                orgId: ctx.orgId,
+                agentId: opts.agentId,
+                triggerKind: opts.triggerKind,
+                triggerContext: opts.triggerContext ?? null,
+                status: "rejected",
+                error: `tx aborted: ${message}`.slice(0, 2000),
+                finishedAt: new Date(),
+              })
+              .onConflictDoNothing();
+          }
+          await audit(tx, { ...ctx, actorType: "system" }, {
+            action: "run.failed",
+            entityType: "run",
+            entityId: runId,
+            detail: { error: message, txAborted: true },
+          });
+        },
+      );
+    } catch (e2) {
+      logEvent(
+        "run.failure_record_failed",
+        { orgId: ctx.orgId, runId, error: String(e2) },
+        "warn",
+      );
+    }
+    return { runId, status: "rejected" as const, error: message };
+  }
 }
 
 /** Cancel a still-running run (mock executor is synchronous, so this is rare). */

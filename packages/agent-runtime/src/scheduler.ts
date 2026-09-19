@@ -1,11 +1,13 @@
-import { desc, eq, gt } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, lt, or, sql } from "drizzle-orm";
 import {
   schema,
   withOrg,
   type DbHandle,
   type OrgContext,
 } from "@aigtm/db";
-import { parseAgentSpec } from "@aigtm/specs";
+import { parseAgentSpec, parseSignalSpec } from "@aigtm/specs";
+import { dispatchPendingOutbox } from "./approvals";
+import { logEvent } from "./log";
 import { executeRun } from "./runner";
 import { routerForOrg, type ModelRouter } from "./model";
 
@@ -111,10 +113,111 @@ export async function tick(
     .from(schema.organizations)) as { id: string }[];
 
   let launched = 0;
+  const emitted: { orgId: string; signalEventId: string; signalName: string }[] = [];
   for (const org of orgs) {
     const ctx: OrgContext = { orgId: org.id, actorType: "system" };
     const due = await withOrg(handle, ctx, async (tx) => {
       const work: DueWork[] = [];
+
+      /* -- signal evaluation -----------------------------------------
+       * Enabled signal specs with `internal_sor` sources are evaluated
+       * here: watch deal.last_activity_at older_than_days → emit a
+       * deduped signal_event per deal (evidence.fingerprint). External
+       * source types (job_boards, press, …) need connectors — skipped.
+       * `enqueue_agent` actions add the named agent to this tick's work.
+       */
+      const enabledSignals = (await tx
+        .select()
+        .from(schema.signals)
+        .where(eq(schema.signals.enabled, true))) as {
+        id: string;
+        name: string;
+        spec: unknown;
+      }[];
+      const emittedNow: { eventId: string; actions: { enqueue_agent?: string }[] }[] = [];
+
+      for (const sig of enabledSignals) {
+        let spec;
+        try {
+          spec = parseSignalSpec(sig.spec);
+        } catch {
+          continue;
+        }
+        for (const src of spec.sources) {
+          if (src.type !== "internal_sor") continue;
+          const w = (src.watch ?? {}) as Record<string, unknown>;
+          if (w.entity !== "deal" || w.field !== "last_activity_at") continue;
+          const days = Number(w.older_than_days ?? 0);
+          if (!days) continue;
+          const cutoff = new Date(now.getTime() - days * 86_400_000);
+          const stale = (await tx
+            .select({
+              id: schema.deals.id,
+              accountId: schema.deals.accountId,
+              name: schema.deals.name,
+              lastActivityAt: schema.deals.lastActivityAt,
+            })
+            .from(schema.deals)
+            .where(
+              and(
+                eq(schema.deals.stage, "open"),
+                or(
+                  lt(schema.deals.lastActivityAt, cutoff),
+                  isNull(schema.deals.lastActivityAt),
+                ),
+              ),
+            )) as {
+            id: string;
+            accountId: string;
+            name: string;
+            lastActivityAt: Date | null;
+          }[];
+
+          for (const d of stale) {
+            const fingerprint = `deal:${d.id}`;
+            const [dup] = await tx
+              .select({ id: schema.signalEvents.id })
+              .from(schema.signalEvents)
+              .where(
+                and(
+                  eq(schema.signalEvents.signalId, sig.id),
+                  sql`${schema.signalEvents.evidence}->>'fingerprint' = ${fingerprint}`,
+                ),
+              )
+              .limit(1);
+            if (dup) continue;
+            const [acc] = await tx
+              .select({ icpFitScore: schema.accounts.icpFitScore })
+              .from(schema.accounts)
+              .where(eq(schema.accounts.id, d.accountId))
+              .limit(1);
+            const [ev] = await tx
+              .insert(schema.signalEvents)
+              .values({
+                orgId: org.id,
+                signalId: sig.id,
+                accountId: d.accountId,
+                evidence: {
+                  fingerprint,
+                  dealId: d.id,
+                  dealName: d.name,
+                  signal: spec.name,
+                  lastActivityAt: d.lastActivityAt?.toISOString() ?? null,
+                  staleDays: days,
+                },
+                score: acc?.icpFitScore ?? null,
+                detectedAt: now,
+              })
+              .returning();
+            emittedNow.push({ eventId: ev.id, actions: spec.actions });
+            emitted.push({
+              orgId: org.id,
+              signalEventId: ev.id,
+              signalName: spec.name,
+            });
+          }
+        }
+      }
       const agents = (await tx
         .select()
         .from(schema.agents)
@@ -171,15 +274,22 @@ export async function tick(
           }
         } else if (trig.type === "event") {
           const eventName = trig.event ?? (trig as { on?: string }).on;
-          if (eventName === "signal_event") {
+          if (eventName) {
             const lastEventRun = lastRuns.find((r) => r.triggerKind === "event");
             const events = (await tx
               .select()
               .from(schema.signalEvents)
               .where(
-                lastEventRun
-                  ? gt(schema.signalEvents.detectedAt, lastEventRun.startedAt)
-                  : undefined,
+                and(
+                  lastEventRun
+                    ? gt(schema.signalEvents.detectedAt, lastEventRun.startedAt)
+                    : undefined,
+                  // signal_event agents see every row; named events
+                  // (inbound.submitted, …) match evidence.eventType
+                  eventName === "signal_event"
+                    ? undefined
+                    : sql`${schema.signalEvents.evidence}->>'eventType' = ${eventName}`,
+                ),
               )) as {
               id: string;
               accountId: string | null;
@@ -209,27 +319,76 @@ export async function tick(
           }
         }
       }
+
+      // `enqueue_agent` actions on freshly-emitted events: resolve by slug
+      // ("stalled-deal-recovery" ≈ "Stalled Deal Recovery"). Dedup against
+      // work already queued by the event-trigger scan above.
+      const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+      const queued = new Set(
+        work.map(
+          (w) =>
+            `${w.agentId}:${(w.triggerContext as { signalEventId?: string }).signalEventId ?? ""}`,
+        ),
+      );
+      for (const em of emittedNow) {
+        for (const act of em.actions) {
+          if (!act.enqueue_agent) continue;
+          const target = agents.find((a) => slug(a.name) === slug(act.enqueue_agent!));
+          if (!target) continue;
+          const key = `${target.id}:${em.eventId}`;
+          if (queued.has(key)) continue;
+          queued.add(key);
+          work.push({
+            agentId: target.id,
+            triggerKind: "event",
+            triggerContext: { signalEventId: em.eventId, via: act.enqueue_agent },
+          });
+        }
+      }
       return work;
     });
 
     // BYOK: resolve each org's provider config; opts.router overrides (tests).
     const router = opts.router ?? (await routerForOrg(handle, org.id));
     for (const w of due) {
-      const res = await executeRun(
-        handle,
-        ctx,
-        {
-          agentId: w.agentId,
-          triggerKind: w.triggerKind,
-          triggerContext: w.triggerContext,
-        },
-        router,
-      );
-      launched++;
-      if (res.status !== "fulfilled") {
-        console.warn(`[worker] run ${res.runId} for agent ${w.agentId}: ${res.status}`);
+      try {
+        const res = await executeRun(
+          handle,
+          ctx,
+          {
+            agentId: w.agentId,
+            triggerKind: w.triggerKind,
+            triggerContext: w.triggerContext,
+          },
+          router,
+        );
+        launched++;
+        if (res.status !== "fulfilled") {
+          console.warn(`[worker] run ${res.runId} for agent ${w.agentId}: ${res.status}`);
+        }
+      } catch (e) {
+        // one bad run must not kill the tick
+        logEvent(
+          "worker.run_crashed",
+          {
+            orgId: org.id,
+            agentId: w.agentId,
+            error: e instanceof Error ? e.message : String(e),
+          },
+          "warn",
+        );
       }
     }
+    // Retry delivery of approved-but-undispatched outbox rows.
+    try {
+      await dispatchPendingOutbox(handle, ctx);
+    } catch (e) {
+      logEvent("outbox.sweep_error", {
+        orgId: org.id,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
   }
+  logEvent("worker.tick", { launched, signalEvents: emitted.length });
   return launched;
 }

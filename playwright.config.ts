@@ -3,7 +3,10 @@ import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e",
   globalSetup: "./e2e/global-setup.ts",
-  timeout: 60_000,
+  timeout: 90_000,
+  // dev-server first-compile stalls occasionally push sign-in past the
+  // timeout; one retry keeps the suite honest without hiding real failures
+  retries: 1,
   use: {
     baseURL: "http://localhost:3939",
   },

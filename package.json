@@ -9,9 +9,10 @@
     "typecheck": "turbo run typecheck",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "db:seed": "pnpm --filter @aigtm/db seed",
+    "db:seed": "pnpm --filter @aigtm/db seed && pnpm --filter @aigtm/agent-runtime sync-specs",
     "db:generate": "pnpm --filter @aigtm/db generate",
-    "db:migrate": "pnpm --filter @aigtm/db migrate"
+    "db:migrate": "pnpm --filter @aigtm/db migrate",
+    "db:sync": "pnpm --filter @aigtm/agent-runtime sync-specs"
   },
   "devDependencies": {
     "turbo": "^2.5.0",
