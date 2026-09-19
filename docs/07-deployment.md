@@ -39,6 +39,7 @@ Everything below reflects what was actually run — not aspirational config.
 | `AIGTM_EMAIL_PROVIDER` | unset | `resend` enables real outbound dispatch for email-kind outbox actions. Unset → dispatch is mock (state transition + `mock: true` audit only). |
 | `AIGTM_RESEND_API_KEY` | unset | Resend API key. Required when `AIGTM_EMAIL_PROVIDER=resend`. |
 | `AIGTM_EMAIL_FROM` | unset | Verified Resend sender address (`AIGTM <ops@yourdomain>`). Required when resend is on. |
+| `AIGTM_EMAIL_VERIFICATION` | unset | `1` requires a Resend-sent OTP before new sign-ups get a session. Needs `AIGTM_RESEND_API_KEY` + `AIGTM_EMAIL_FROM`; fails closed without them. |
 | `AIGTM_EVAL_LLM_JUDGE` | unset | `1` enables the LLM-judge eval: a cheap-model critique of each run's output is appended to `runs.eval_notes` (judge cost counted in `cost_cents`). |
 | `AIGTM_INGEST_RATE_LIMIT` | `120` | Per-key requests/minute cap on `POST /api/ingest` (per instance). Bodies over 256KB are rejected with 413. |
 | `AIGTM_METRICS_TOKEN` | unset | Enables `GET /api/metrics` (Prometheus text format, Bearer auth). Unset → 404. Global aggregates only. |
@@ -121,6 +122,29 @@ Org-scoped, secrets encrypted with `AIGTM_MASTER_KEY` (AES-256-GCM):
   available under "Manual credentials". The worker syncs Gmail threads and
   Calendar events into `conversations` every tick, throttled to once per 5
   minutes per org. Failures are logged per-org and isolated.
+
+**Verify a real connection** (Google Console side, ~5 min):
+
+1. Google Cloud Console → APIs & Services → enable **Gmail API** and
+   **Google Calendar API** on the project holding your OAuth client.
+2. OAuth consent screen → add scopes `gmail.readonly`,
+   `calendar.readonly` (add yourself as a test user while in Testing).
+3. Credentials → your web OAuth client → add redirect URI
+   `$AIGTM_BASE_URL/api/google/connect/callback`.
+4. In AIGTM: **Settings → Integrations → Connect Google Workspace**, pick
+   the Google account, approve.
+5. `pnpm --filter @aigtm/agent-runtime google-check <orgId>` — performs a
+   real refresh-token exchange and fetches Gmail + Calendar over the same
+   code path the worker uses. Prints `google-check: OK` on success.
+
+### Email verification (sign-up)
+
+`AIGTM_EMAIL_VERIFICATION=1` requires new sign-ups to prove mailbox
+ownership with a 6-digit OTP (sha256-stored, 15-minute TTL, 5 attempts)
+sent via Resend — `AIGTM_RESEND_API_KEY` + `AIGTM_EMAIL_FROM` must be set,
+and sign-up fails closed if they aren't. SSO users are stamped verified by
+the IdP; admin-provisioned members are verified at creation. Off by
+default so internal deployments need no mail provider.
 
 ### Google SSO
 
@@ -338,9 +362,11 @@ These are the honest gaps before selling this:
 - [x] `/api/health` probe + baseline security headers
 - [x] CI: lint/typecheck/unit/build + pg16 migrate/seed/RLS-verify + E2E
       (`.github/workflows/ci.yml`)
-- [ ] Real auth provider (current: cookie sessions + scrypt). Rate limiting,
-      sliding TTL and secure cookies are in; SSO/OAuth and email verification
-      are not.
+- [x] Real auth provider (current: cookie sessions + scrypt). Rate limiting,
+      sliding TTL and secure cookies are in; Google SSO and OTP email
+      verification (`AIGTM_EMAIL_VERIFICATION=1`) are implemented
+- [x] Multi-org users: `sessions.org_id` pins the acting org, sidebar
+      switcher for users with ≥2 memberships (server-side state, never a cookie)
 - [x] Sign-in throttle is DB-backed (`login_attempts`) — consistent across
       replicas; sessions live in `sessions` so invalidation is already global
 - [x] LLM providers behind env + per-run cost ceiling

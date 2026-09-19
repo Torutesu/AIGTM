@@ -21,7 +21,8 @@
     "menu": "Menu",
     "close": "Close",
     "signOut": "Sign out",
-    "ask": "Ask"
+    "ask": "Ask",
+    "switchOrg": "Switch workspace"
   },
   "auth": {
     "signIn": "Sign in",
@@ -358,5 +359,20 @@
     "error": "Something went wrong. Try again.",
     "budgetExceeded": "Monthly AI budget reached. Raise it in Settings to keep using Ask.",
     "mockModel": "mock model — configure a provider in Settings"
+  },
+  "verify": {
+    "title": "Verify your email",
+    "body": "We sent a 6-digit code to your email. Enter it with your password to finish signing in.",
+    "email": "Email",
+    "code": "6-digit code",
+    "password": "Password",
+    "verify": "Verify",
+    "resend": "Resend code",
+    "sent": "Code sent — check your inbox.",
+    "errorInvalid": "Invalid code. Check the latest email and try again.",
+    "errorExpired": "That code expired. Request a new one.",
+    "errorLocked": "Too many attempts. Request a new code.",
+    "errorPassword": "Email verified, but the password did not match.",
+    "errorMail": "Mail is not configured on this deployment. Contact your administrator."
   }
 }

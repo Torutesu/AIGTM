@@ -259,6 +259,43 @@ test("settings: admin lists members and can add one", async ({ page }) => {
   await expect(page.getByText("New Member")).toBeVisible();
 });
 
+test("multi-org user can switch workspaces", async ({ browser, page }) => {
+  // 1. sign up a second workspace (own org, own admin)
+  const ctx2 = await browser.newContext();
+  const p2 = await ctx2.newPage();
+  await p2.goto("/en/login");
+  const signUp = p2.locator("form").filter({ hasText: "workspace" });
+  await signUp.locator('input[name="orgName"]').fill("E2E Second Org");
+  await signUp.locator('input[name="name"]').fill("Second Admin");
+  await signUp.locator('input[name="email"]').fill("second-admin@e2e.local");
+  await signUp.locator('input[name="password"]').fill("second-password");
+  await signUp.getByRole("button").click();
+  await p2.waitForURL("**/en/inbox");
+
+  // 2. that admin adds the seeded admin as a member of the second org
+  await p2.goto("/en/settings");
+  await p2.getByPlaceholder("teammate@corp.example").fill("admin@aigtm.local");
+  await p2.locator('input[name="name"]').fill("Org1 Admin");
+  await p2.locator('input[name="password"]').fill("ignored-for-existing");
+  await p2.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(p2.getByText("admin@aigtm.local")).toBeVisible();
+  await ctx2.close();
+
+  // 3. seeded admin now has 2 orgs → switcher appears, switch, data changes
+  await page.goto("/en/inbox");
+  const switcher = page.locator("details", { hasText: "workspace" }).first();
+  await expect(switcher).toBeVisible();
+  await switcher.locator("summary").click();
+  await switcher.getByRole("button", { name: /E2E Second Org/ }).click();
+  await page.waitForURL("**/en/inbox");
+  await expect(
+    page.locator("details summary").filter({ hasText: "E2E Second Org" }),
+  ).toBeVisible();
+  // org2 has no seeded accounts — the other tenant's data is gone
+  await page.goto("/en/accounts");
+  await expect(page.getByText("Nordic Systems")).toHaveCount(0);
+});
+
 test("segments: edit filters and delete", async ({ page }) => {
   await page.goto("/en/segments");
   const card = page.getByTestId("segment-card").first();
@@ -595,7 +632,9 @@ test("metrics endpoint: bearer-protected prometheus exposition", async ({
   expect(body).toContain("aigtm_outbox_rows");
   expect(body).toContain("aigtm_approvals_pending");
   expect(body).toContain("aigtm_audit_events");
-  expect(body).toContain("aigtm_organizations 1");
+  // count is data-dependent (multi-org test creates orgs) — assert the
+  // metric is present and numeric, not a specific value
+  expect(body).toMatch(/aigtm_organizations \d+/);
 });
 
 test("admin can erase a contact; dialog cancel aborts", async ({ page }) => {

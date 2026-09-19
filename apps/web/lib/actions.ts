@@ -4,7 +4,17 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { and, eq } from "drizzle-orm";
-import { signIn, signUp, signOut, SignInLocked } from "@aigtm/auth";
+import {
+  signIn,
+  signUp,
+  signOut,
+  SignInLocked,
+  switchOrg,
+  issueVerificationCode,
+  verifyEmailCode,
+  emailVerificationRequired,
+} from "@aigtm/auth";
+import { sendMail, mailConfigured } from "./mail";
 import { hashPassword } from "@aigtm/db";
 import {
   executeRun,
@@ -47,26 +57,94 @@ export async function signInAction(locale: string, formData: FormData) {
     throw e;
   }
   if (!result) redirect(`/${locale}/login?error=invalid`);
+  // Verified credentials but unverified mailbox → re-issue a code and land
+  // on /verify instead of letting the user in. Session cookie is not set.
+  if (emailVerificationRequired() && !result.session.emailVerified) {
+    await sendVerificationMail(email, result.session.name);
+    redirect(`/${locale}/verify?email=${encodeURIComponent(email)}&sent=1`);
+  }
   await setSessionCookie(result.token);
   await flash("signedIn");
   redirect(`/${locale}/inbox`);
+}
+
+/** Generate a code and email it. Throws honestly when mail is off — the
+ * caller's verification gate already failed closed. */
+async function sendVerificationMail(email: string, name: string) {
+  const issued = await issueVerificationCode(await ensureDb(), email);
+  if (!issued) return;
+  await sendMail({
+    to: email,
+    subject: "Your AIGTM verification code",
+    text: `Hi ${name},\n\nYour verification code is ${issued.code}. It expires in 15 minutes.\n\n— AIGTM`,
+  });
 }
 
 export async function signUpAction(locale: string, formData: FormData) {
   const handle = await ensureDb();
   const email = String(formData.get("email") ?? "");
   const password = String(formData.get("password") ?? "");
+  const name = String(formData.get("name") ?? "");
   await signUp(handle, {
     email,
     password,
-    name: String(formData.get("name") ?? ""),
+    name,
     orgName: String(formData.get("orgName") ?? ""),
   });
+  // Fail closed: verification on but no mail provider = honest error, not a
+  // silently-unverified account.
+  if (emailVerificationRequired()) {
+    if (!mailConfigured()) redirect(`/${locale}/verify?email=${encodeURIComponent(email)}&error=mail`);
+    await sendVerificationMail(email.toLowerCase(), name || email);
+    redirect(`/${locale}/verify?email=${encodeURIComponent(email)}&sent=1`);
+  }
   const res = await signIn(handle, { email, password });
   if (res) {
     await setSessionCookie(res.token);
     await flash("signedIn");
   }
+  redirect(`/${locale}/inbox`);
+}
+
+export async function verifyEmailAction(locale: string, formData: FormData) {
+  const email = String(formData.get("email") ?? "").toLowerCase();
+  const code = String(formData.get("code") ?? "");
+  const handle = await ensureDb();
+  const status = await verifyEmailCode(handle, { email, code });
+  const back = `/${locale}/verify?email=${encodeURIComponent(email)}`;
+  if (status === "ok" || status === "already") {
+    const password = String(formData.get("password") ?? "");
+    const res = await signIn(handle, { email, password });
+    if (res) {
+      await setSessionCookie(res.token);
+      await flash("signedIn");
+      redirect(`/${locale}/inbox`);
+    }
+    redirect(`${back}&error=password`);
+  }
+  redirect(`${back}&error=${status}`);
+}
+
+export async function resendVerificationAction(locale: string, formData: FormData) {
+  const email = String(formData.get("email") ?? "").toLowerCase();
+  await sendVerificationMail(email, email);
+  redirect(`/${locale}/verify?email=${encodeURIComponent(email)}&sent=1`);
+}
+
+export async function switchOrgAction(locale: string, formData: FormData) {
+  const handle = await ensureDb();
+  const session = await currentSession();
+  if (!session) redirect(`/${locale}/login`);
+  const store = await cookies();
+  const token = store.get(SESSION_COOKIE)?.value ?? "";
+  const orgId = String(formData.get("orgId") ?? "");
+  const next = await switchOrg(handle, {
+    userId: session.userId,
+    token,
+    orgId,
+  });
+  if (!next) redirect(`/${locale}/inbox?error=forbidden`);
+  revalidatePath(`/${locale}`);
   redirect(`/${locale}/inbox`);
 }
 
@@ -188,7 +266,12 @@ export async function addMemberAction(locale: string, formData: FormData) {
       if (!user) {
         [user] = await tx
           .insert(schema.users)
-          .values({ email, name: name || email, passwordHash: hashPassword(password) })
+          .values({
+            email,
+            name: name || email,
+            passwordHash: hashPassword(password),
+            emailVerifiedAt: new Date(), // admin provisioned
+          })
           .returning({ id: schema.users.id });
       }
       const [existing] = (await tx

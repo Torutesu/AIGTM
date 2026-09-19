@@ -12,11 +12,13 @@ export function MobileNav({
   locale,
   role,
   signOut,
+  switcher,
 }: {
   email: string;
   locale: string;
   role: string;
   signOut: () => Promise<void>;
+  switcher?: React.ReactNode;
 }) {
   const t = useTranslations("nav");
   const pathname = usePathname();
@@ -67,6 +69,7 @@ export function MobileNav({
               <SideNav role={role} />
             </div>
             <div className="border-t border-line-soft px-3 py-4">
+              {switcher}
               <div className="flex items-center gap-2.5 px-3 py-1.5">
                 <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-forest font-mono text-[11px] text-white">
                   {email.slice(0, 1).toUpperCase()}

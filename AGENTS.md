@@ -33,3 +33,8 @@ AI-native GTM OS を作る。ベンチマークは Frontrunner (usefr.com)。詳
 - `worker_state` KV テーブル: 監査シンクの watermark・worker ハートビートを永続化。`AIGTM_AUDIT_WEBHOOK_URL` へ at-least-once 転送（初回は最新イベントにアンカー — 履歴ダンプしない）
 - GDPR 消去: `@aigtm/db` の `erasePerson`/`eraseAccount` を admin 専用 server action から `withOrg` 内で呼ぶ。匿名化 tombstone（`[erased]`）＋監査記録、冪等
 - `/api/metrics`: `AIGTM_METRICS_TOKEN` 設定時のみ有効、Bearer 必須。Prometheus text 形式
+- 複数 org ユーザー: `sessions.org_id` がアクティブ org をピン留め（`getSession` はピン優先→最初の membership にフォールバック）。サイドバーの OrgSwitcher（≥2 memberships の時のみ表示）が `switchOrg` で切替 — org 選択はサーバー側 state で、クライアント入力を信用しない
+- メール認証: `AIGTM_EMAIL_VERIFICATION=1` で sign-up/sign-in が OTP（6桁・sha256保存・15分TTL・5回上限）を要求、`/verify` 経由。Resend 必須で fail-closed。SSO/管理者作成ユーザーは即 verified
+- `segments.members` ツール（read-only）でセグメント定義がエージェント実行時の入力になる — `weekly-pipeline-digest` が実消費者
+- Ask（`/ask`）: org スコープ検索 → `reasoning` ロール → `{answer, citations}`。引用はモデルに見せた ref のみサーバー側で実レコードに解決（捏造 ref は不可）。`ask.answered` 監査＋月次予算ゲートは run と共通
+- `conversations.summary` は AES-256-GCM でフィールド暗号化（`v1:` プレフィックス、`ingestMessages` が唯一の書き込み経路）。読み側は `decryptField` で透過復号＋平文後方互換

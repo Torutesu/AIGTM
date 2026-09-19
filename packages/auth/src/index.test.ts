@@ -1,7 +1,17 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { eq } from "drizzle-orm";
 import { createDb, migrate, schema, type DbHandle } from "@aigtm/db";
-import { signUp, signIn, getSession, signOut, SignInLocked, ssoSignIn } from "./index";
+import {
+  signUp,
+  signIn,
+  getSession,
+  signOut,
+  SignInLocked,
+  ssoSignIn,
+  switchOrg,
+  issueVerificationCode,
+  verifyEmailCode,
+} from "./index";
 
 let handle: DbHandle;
 
@@ -97,5 +107,112 @@ describe("ssoSignIn", () => {
         provider: "google",
       }),
     ).rejects.toThrowError("sso_no_org");
+  });
+});
+
+describe("multi-org sessions", () => {
+  it("switchOrg re-pins the session to a member org and refuses others", async () => {
+    // user in two orgs
+    const res = await signIn(handle, { email: "a@b.com", password: "pw-123456" });
+    const firstOrg = res!.session.orgId;
+    const [otherOrg] = await handle.db
+      .insert(schema.organizations)
+      .values({ name: "Second Org" })
+      .returning();
+    await handle.db.insert(schema.memberships).values({
+      orgId: otherOrg.id,
+      userId: res!.session.userId,
+      role: "member",
+    });
+
+    const next = await switchOrg(handle, {
+      userId: res!.session.userId,
+      token: res!.token,
+      orgId: otherOrg.id,
+    });
+    expect(next?.orgId).toBe(otherOrg.id);
+    expect(next?.role).toBe("member");
+    // the same token now resolves to the new org — not the arbitrary first
+    const session = await getSession(handle, res!.token);
+    expect(session?.orgId).toBe(otherOrg.id);
+
+    // non-member org is refused
+    const [stranger] = await handle.db
+      .insert(schema.organizations)
+      .values({ name: "Stranger Org" })
+      .returning();
+    expect(
+      await switchOrg(handle, {
+        userId: res!.session.userId,
+        token: res!.token,
+        orgId: stranger.id,
+      }),
+    ).toBeNull();
+    expect((await getSession(handle, res!.token))?.orgId).toBe(otherOrg.id);
+
+    // and switching back works
+    await switchOrg(handle, {
+      userId: res!.session.userId,
+      token: res!.token,
+      orgId: firstOrg,
+    });
+    expect((await getSession(handle, res!.token))?.orgId).toBe(firstOrg);
+  });
+});
+
+describe("email verification OTP", () => {
+  it("issues a code, enforces expiry/attempts, verifies and clears", async () => {
+    const email = "otp@b.com";
+    await signUp(handle, {
+      email,
+      password: "pw-123456",
+      name: "Otp",
+      orgName: "Otp Org",
+    });
+    // simulate a deployment requiring verification: strip the stamp
+    await handle.db
+      .update(schema.users)
+      .set({ emailVerifiedAt: null })
+      .where(eq(schema.users.email, email));
+
+    const issued = await issueVerificationCode(handle, email);
+    expect(issued?.code).toMatch(/^\d{6}$/);
+
+    // wrong code burns an attempt
+    expect(await verifyEmailCode(handle, { email, code: "000000" })).toBe(
+      "invalid",
+    );
+    // correct code verifies
+    expect(await verifyEmailCode(handle, { email, code: issued!.code })).toBe(
+      "ok",
+    );
+    // verified users are idempotent and get no new codes
+    expect(await verifyEmailCode(handle, { email, code: "123456" })).toBe(
+      "already",
+    );
+    expect(await issueVerificationCode(handle, email)).toBeNull();
+  });
+
+  it("locks after 5 wrong attempts", async () => {
+    const email = "otp-lock@b.com";
+    await signUp(handle, {
+      email,
+      password: "pw-123456",
+      name: "Lock",
+      orgName: "Lock Org",
+    });
+    await handle.db
+      .update(schema.users)
+      .set({ emailVerifiedAt: null })
+      .where(eq(schema.users.email, email));
+    await issueVerificationCode(handle, email);
+    for (let i = 0; i < 5; i++) {
+      expect(await verifyEmailCode(handle, { email, code: "999999" })).toBe(
+        "invalid",
+      );
+    }
+    expect(await verifyEmailCode(handle, { email, code: "999999" })).toBe(
+      "locked",
+    );
   });
 });

@@ -4,8 +4,12 @@ import { setRequestLocale } from "next-intl/server";
 import { GlobeIcon, LogOutIcon, Logo } from "./_components/icons";
 import { requireSession } from "../../../lib/session";
 import { signOutAction } from "../../../lib/actions";
+import { ensureDb } from "../../../lib/db";
+import { eq } from "drizzle-orm";
+import { schema } from "@aigtm/db";
 import { Link } from "../../../i18n/routing";
 import { SideNav } from "./_components/nav";
+import { OrgSwitcher, type OrgOption } from "./_components/org-switcher";
 import { CommandPalette } from "./_components/palette";
 import { MobileNav } from "./_components/mobile-nav";
 import { ToastHub } from "./_components/toast";
@@ -24,12 +28,28 @@ export default async function AppLayout({
   setRequestLocale(locale);
   const session = await requireSession(locale);
   const toast = await readToast();
+  // memberships is not RLS-scoped — filter by userId explicitly.
+  const handle = await ensureDb();
+  const orgs = (await handle.db
+    .select({
+      orgId: schema.memberships.orgId,
+      name: schema.organizations.name,
+      role: schema.memberships.role,
+    })
+    .from(schema.memberships)
+    .innerJoin(
+      schema.organizations,
+      eq(schema.memberships.orgId, schema.organizations.id),
+    )
+    .where(eq(schema.memberships.userId, session.userId))) as OrgOption[];
   return (
     <Shell
       locale={locale}
       email={session.email}
       role={session.role}
       toast={toast}
+      orgs={orgs}
+      currentOrgId={session.orgId}
     >
       {children}
     </Shell>
@@ -42,12 +62,16 @@ function Shell({
   email,
   role,
   toast,
+  orgs,
+  currentOrgId,
 }: {
   children: ReactNode;
   locale: string;
   email: string;
   role: string;
   toast: string | null;
+  orgs: OrgOption[];
+  currentOrgId: string;
 }) {
   const t = useTranslations("nav");
   const other = locale === "en" ? "ja" : "en";
@@ -69,6 +93,7 @@ function Shell({
         </div>
 
         <div className="border-t border-line-soft px-3 py-4">
+          <OrgSwitcher locale={locale} orgs={orgs} currentOrgId={currentOrgId} />
           <div className="flex items-center gap-2.5 rounded-lg px-3 py-1.5">
             <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-forest font-mono text-[11px] text-white">
               {email.slice(0, 1).toUpperCase()}
@@ -106,6 +131,9 @@ function Shell({
             locale={locale}
             role={role}
             signOut={signOutAction.bind(null, locale)}
+            switcher={
+              <OrgSwitcher locale={locale} orgs={orgs} currentOrgId={currentOrgId} />
+            }
           />
           <Logo size={20} textClassName="text-[17px]" />
         </header>

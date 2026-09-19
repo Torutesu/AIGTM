@@ -3,6 +3,7 @@ import {
   schema,
   verifyPassword,
   hashPassword,
+  hashSecret,
   newSessionToken,
   type DbHandle,
 } from "@aigtm/db";
@@ -83,6 +84,27 @@ export interface SessionInfo {
   name: string;
   orgId: string;
   role: string;
+  emailVerified: boolean;
+}
+
+/** Email verification is opt-in per deployment: required for external sale,
+ * off for internal/dev so nothing breaks without a mail provider. */
+export function emailVerificationRequired(): boolean {
+  return process.env.AIGTM_EMAIL_VERIFICATION === "1";
+}
+
+function sessionInfo(
+  user: { id: string; email: string; name: string; emailVerifiedAt: Date | null },
+  membership: { orgId: string; role: string },
+): SessionInfo {
+  return {
+    userId: user.id,
+    email: user.email,
+    name: user.name,
+    orgId: membership.orgId,
+    role: membership.role,
+    emailVerified: user.emailVerifiedAt != null,
+  };
 }
 
 /**
@@ -104,12 +126,13 @@ export async function signUp(
       email: input.email.toLowerCase(),
       name: input.name,
       passwordHash: hashPassword(input.password),
+      emailVerifiedAt: emailVerificationRequired() ? null : new Date(),
     })
     .returning();
   await db
     .insert(schema.memberships)
     .values({ orgId: org.id, userId: user.id, role: "admin" });
-  return { userId: user.id, email: user.email, name: user.name, orgId: org.id, role: "admin" };
+  return sessionInfo(user, { orgId: org.id, role: "admin" });
 }
 
 export async function signIn(
@@ -143,19 +166,11 @@ export async function signIn(
   const token = newSessionToken();
   await db.insert(schema.sessions).values({
     userId: user.id,
+    orgId: membership.orgId,
     token,
     expiresAt: new Date(Date.now() + SESSION_TTL_MS),
   });
-  return {
-    token,
-    session: {
-      userId: user.id,
-      email: user.email,
-      name: user.name,
-      orgId: membership.orgId,
-      role: membership.role,
-    },
-  };
+  return { token, session: sessionInfo(user, membership) };
 }
 
 /**
@@ -197,11 +212,18 @@ export async function ssoSignIn(
         email,
         name: input.name || email.split("@")[0],
         passwordHash: `sso:${input.provider}`,
+        emailVerifiedAt: new Date(), // the IdP already proved the mailbox
       })
       .returning();
     await db
       .insert(schema.memberships)
       .values({ orgId, userId: user.id, role });
+  } else if (!user.emailVerifiedAt) {
+    [user] = await db
+      .update(schema.users)
+      .set({ emailVerifiedAt: new Date() })
+      .where(eq(schema.users.id, user.id))
+      .returning();
   }
 
   const [membership] = await db
@@ -214,19 +236,11 @@ export async function ssoSignIn(
   const token = newSessionToken();
   await db.insert(schema.sessions).values({
     userId: user.id,
+    orgId: membership.orgId,
     token,
     expiresAt: new Date(Date.now() + SESSION_TTL_MS),
   });
-  return {
-    token,
-    session: {
-      userId: user.id,
-      email: user.email,
-      name: user.name,
-      orgId: membership.orgId,
-      role: membership.role,
-    },
-  };
+  return { token, session: sessionInfo(user, membership) };
 }
 
 export async function getSession(handle: DbHandle, token: string | undefined) {
@@ -236,15 +250,26 @@ export async function getSession(handle: DbHandle, token: string | undefined) {
     .select({
       session: schema.sessions,
       user: schema.users,
-      membership: schema.memberships,
     })
     .from(schema.sessions)
     .innerJoin(schema.users, eq(schema.sessions.userId, schema.users.id))
-    .innerJoin(schema.memberships, eq(schema.memberships.userId, schema.users.id))
     .where(and(eq(schema.sessions.token, token), gt(schema.sessions.expiresAt, new Date())))
     .limit(1);
   const row = rows[0];
   if (!row) return null;
+  // The session acts as its pinned org; sessions predating org pinning
+  // (orgId null) fall back to the first membership. A membership that no
+  // longer exists degrades to the first remaining one — never a cross-tenant hop.
+  const memberships = (await db
+    .select()
+    .from(schema.memberships)
+    .where(eq(schema.memberships.userId, row.user.id))) as {
+    orgId: string;
+    role: string;
+  }[];
+  const membership =
+    memberships.find((m) => m.orgId === row.session.orgId) ?? memberships[0];
+  if (!membership) return null;
   // sliding expiration: extend sessions past their half-life
   const remaining = row.session.expiresAt.getTime() - Date.now();
   if (remaining < SESSION_TTL_MS / 2) {
@@ -253,13 +278,113 @@ export async function getSession(handle: DbHandle, token: string | undefined) {
       .set({ expiresAt: new Date(Date.now() + SESSION_TTL_MS) })
       .where(eq(schema.sessions.id, row.session.id));
   }
-  return {
-    userId: row.user.id,
-    email: row.user.email,
-    name: row.user.name,
-    orgId: row.membership.orgId,
-    role: row.membership.role,
-  } satisfies SessionInfo;
+  return sessionInfo(row.user, membership);
+}
+
+/**
+ * Switch the session's active org. The target must be an org the user
+ * belongs to — org choice is server-side session state, never client input
+ * trusted on its own.
+ */
+export async function switchOrg(
+  handle: DbHandle,
+  input: { userId: string; token: string; orgId: string },
+): Promise<SessionInfo | null> {
+  const db = handle.db;
+  const [membership] = await db
+    .select()
+    .from(schema.memberships)
+    .where(
+      and(
+        eq(schema.memberships.userId, input.userId),
+        eq(schema.memberships.orgId, input.orgId),
+      ),
+    )
+    .limit(1);
+  if (!membership) return null;
+  await db
+    .update(schema.sessions)
+    .set({ orgId: input.orgId })
+    .where(
+      and(
+        eq(schema.sessions.token, input.token),
+        eq(schema.sessions.userId, input.userId),
+      ),
+    );
+  const [user] = await db
+    .select()
+    .from(schema.users)
+    .where(eq(schema.users.id, input.userId))
+    .limit(1);
+  return user ? sessionInfo(user, membership) : null;
+}
+
+/* ------------------------- email verification ------------------------- */
+
+const VERIFY_TTL_MS = 15 * 60_000;
+const VERIFY_MAX_ATTEMPTS = 5;
+
+/**
+ * Issue a fresh 6-digit OTP for an unverified user. Returns the plaintext
+ * code (the caller emails it) or null when the user doesn't exist / is
+ * already verified. Stored state is sha256-only, 15-minute TTL.
+ */
+export async function issueVerificationCode(
+  handle: DbHandle,
+  email: string,
+): Promise<{ code: string; name: string } | null> {
+  const db = handle.db;
+  const [user] = await db
+    .select()
+    .from(schema.users)
+    .where(eq(schema.users.email, email.toLowerCase()))
+    .limit(1);
+  if (!user || user.emailVerifiedAt) return null;
+  const code = String(Math.floor(100000 + Math.random() * 900000));
+  await db
+    .update(schema.users)
+    .set({
+      verifyCodeHash: hashSecret(code),
+      verifyCodeExpiresAt: new Date(Date.now() + VERIFY_TTL_MS),
+      verifyAttempts: 0,
+    })
+    .where(eq(schema.users.id, user.id));
+  return { code, name: user.name };
+}
+
+/** Attempts-counter for OTP guesses; locks at VERIFY_MAX_ATTEMPTS. */
+export async function verifyEmailCode(
+  handle: DbHandle,
+  input: { email: string; code: string },
+): Promise<"ok" | "already" | "expired" | "invalid" | "locked"> {
+  const db = handle.db;
+  const [user] = await db
+    .select()
+    .from(schema.users)
+    .where(eq(schema.users.email, input.email.toLowerCase()))
+    .limit(1);
+  if (!user) return "invalid";
+  if (user.emailVerifiedAt) return "already";
+  if (!user.verifyCodeHash || !user.verifyCodeExpiresAt) return "invalid";
+  if (user.verifyAttempts >= VERIFY_MAX_ATTEMPTS) return "locked";
+  if (user.verifyCodeExpiresAt.getTime() < Date.now()) return "expired";
+  if (hashSecret(input.code.trim()) !== user.verifyCodeHash) {
+    await db
+      .update(schema.users)
+      .set({ verifyAttempts: user.verifyAttempts + 1 })
+      .where(eq(schema.users.id, user.id));
+    return "invalid";
+  }
+  await db
+    .update(schema.users)
+    .set({
+      emailVerifiedAt: new Date(),
+      verifyCodeHash: null,
+      verifyCodeExpiresAt: null,
+      verifyAttempts: 0,
+    })
+    .where(eq(schema.users.id, user.id));
+  return "ok";
 }
 
 export async function signOut(handle: DbHandle, token: string) {

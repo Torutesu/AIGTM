@@ -19,12 +19,23 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   name: text("name").notNull(),
   passwordHash: text("password_hash").notNull(),
+  /** Set once the mailbox is proven — OTP verify, SSO claim, or admin
+   *  provisioning. Null = must verify before a session is issued (only
+   *  enforced when AIGTM_EMAIL_VERIFICATION=1). */
+  emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
+  /** Pending OTP state: sha256 of the 6-digit code, never the code itself. */
+  verifyCodeHash: text("verify_code_hash"),
+  verifyCodeExpiresAt: timestamp("verify_code_expires_at", { withTimezone: true }),
+  verifyAttempts: integer("verify_attempts").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const sessions = pgTable("sessions", {
   id: uuid("id").defaultRandom().primaryKey(),
   userId: uuid("user_id").notNull().references(() => users.id),
+  /** Org the session acts as. Nullable for sessions minted before the
+   *  column existed — getSession falls back to the first membership. */
+  orgId: uuid("org_id").references(() => organizations.id),
   token: text("token").notNull().unique(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
